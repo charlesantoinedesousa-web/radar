@@ -14,7 +14,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 HERE = Path(__file__).parent
-OUT = HERE / "output"
+OUT = HERE / "docs"  # dossier publié par GitHub Pages
 UA = f"radar/0.1 ({os.environ.get('RADAR_CONTACT', 'contact-non-renseigne')})"
 SKIP_PREFIX = ("Special:", "Wikipedia:", "Portal:", "Category:", "Help:", "File:", "Template:", "Talk:", "User:", "Deaths_in", "List_of",
                "Spécial:", "Wikipédia:", "Portail:", "Catégorie:", "Aide:", "Fichier:",
@@ -217,9 +217,13 @@ sinon écris exactement "cause non identifiée dans les signaux"), "mesure" (chi
 "chiffres" = 5 à 8 chiffres, études ou sondages du jour repris TELS QUELS des signaux (jamais reformulés en un autre chiffre) : \
 "chiffre" (ex. "1 %"), "phrase" (ce qu'il mesure, d'après le signal), "source" (institut ou média tel qu'il apparaît dans le signal), "signal_ids". \
 Si moins de 5 chiffres figurent dans les signaux, n'en liste que ce qui existe.
+INSIGHT : chaque fiche a un champ "insight" : UNE phrase du type « Les gens [comportement/ressenti], parce que [tension], alors que [ce que les marques font encore] ». \
+L'angle et le message en découlent directement ; si tu n'arrives pas à formuler l'insight, n'écris pas la fiche.
+CHIFFRES UTILES : ne retiens dans "chiffres" que ceux qui éclairent consommation, usages, marques, tech, travail, médias ou culture. Écarte les chiffres \
+de faits divers, de santé grave, de suicide, de fin de vie, de justice ou de politique partisane.
 ANGLES : un angle part d'une tension réelle et prend position (« ce que la marque dit que les autres n'osent pas »). Interdit : slogans génériques, \
 promesses vagues (« infiniment plus de goût »), jeux de mots creux. Le message doit pouvoir être affiché tel quel, en une à deux phrases.
-Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"titre","categorie","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
+Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"titre","categorie","insight","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
 
 
 def call_llm(user_msg):
@@ -352,12 +356,18 @@ def notify(signals):
 def render(payload):
     OUT.mkdir(exist_ok=True)
     (OUT / "history").mkdir(exist_ok=True)
+    (OUT / "archive").mkdir(exist_ok=True)
+    (OUT / ".nojekyll").write_text("", encoding="utf-8")
+    today = f"{dt.date.today():%Y-%m-%d}"
+    payload["archive"] = sorted({p.stem for p in (OUT / "archive").glob("*.html")} | {today}, reverse=True)[:60]
     data = json.dumps(payload, ensure_ascii=False)
     (OUT / "latest.json").write_text(data, encoding="utf-8")
-    (OUT / "history" / f"{dt.date.today():%Y-%m-%d}.json").write_text(data, encoding="utf-8")
+    (OUT / "history" / f"{today}.json").write_text(data, encoding="utf-8")
     tpl = (HERE / "template.html").read_text(encoding="utf-8")
-    (OUT / "index.html").write_text(tpl.replace("/*DATA*/null", data.replace("</", "<\\/")), encoding="utf-8")
-    print(f"Dashboard : {OUT / 'index.html'}")
+    page = tpl.replace("/*DATA*/null", data.replace("</", "<\\/"))
+    (OUT / "index.html").write_text(page, encoding="utf-8")
+    (OUT / "archive" / f"{today}.html").write_text(page, encoding="utf-8")
+    print(f"Site : {OUT / 'index.html'}")
 
 
 def main():

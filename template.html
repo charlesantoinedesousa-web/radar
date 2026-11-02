@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="fr"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RADAR</title>
 <style>
 :root{--bg:#f6f4ef;--fg:#18181b;--mut:#6b6b73;--card:#fff;--line:#e4e1d8;--acc:#e5322d;--hot:#e5322d;--up:#d98a00;--base:#3a6ea5}
@@ -34,6 +34,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;borde
 </style></head><body>
 <header><h1>RA<span>DAR</span></h1><div class="sub" id="meta"></div></header>
 <div id="banner"></div>
+<nav class="bar" id="arch" style="padding-top:0"></nav>
 <div class="bar" id="bar"></div>
 <section id="monte"></section>
 <section id="chiffres"></section>
@@ -60,6 +61,7 @@ function card(f){
  <h2>${esc(f.titre)}</h2>
  <div><div class="lbl">Le signal</div>${esc(f.signal)}</div>
  <div><div class="lbl">Statut</div>${esc(f.statut)}</div>
+ ${f.insight?`<div class="proof"><div class="lbl">L'insight</div><b>${esc(f.insight)}</b></div>`:""}
  ${f.preuve?`<div class="proof"><div class="lbl">La preuve</div>${esc(f.preuve)}</div>`:""}
  ${f.rebondable===false?`<div class="warn"><b>Ne pas rebondir.</b> ${esc(f.risque)}</div>`:(f.risque?`<div class="tiny">⚠ ${esc(f.risque)}</div>`:"")}
  ${(f.angles||[]).map((a,i)=>`<div class="angle"><b>Pour : ${esc(a.pour_qui)}</b>${esc(a.message)}<br><button class="cp" data-t="${esc(a.message)}">Copier</button></div>`).join("")}
@@ -86,6 +88,11 @@ function chiffres(){
  if(!(D.chiffres||[]).length)return;
  $("#chiffres").innerHTML="<h3>Chiffres &amp; études du jour</h3><div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px'>"+D.chiffres.map(c=>`<div class="mrow"><b style="font-size:22px;color:var(--acc)">${esc(c.chiffre)}</b><span>${esc(c.phrase)}</span><span class="tiny">${esc(c.source)}${(c.liens||[]).length?' · <a href="'+esc(c.liens[0].url)+'" target="_blank" rel="noopener">source</a>':""}</span></div>`).join("")+"</div>";
 }
+function arch(){
+ const inA=location.pathname.includes("/archive/"),pre=inA?"":"archive/";
+ const L=(D.archive||[]);if(L.length<2&&!inA)return;
+ $("#arch").innerHTML='<span class="tiny">Éditions :</span> <a class="chip" href="'+(inA?"../index.html":"index.html")+'">Dernière</a> '+L.slice(0,14).map(d=>`<a class="chip" href="${pre}${d}.html">${d.slice(8)}/${d.slice(5,7)}</a>`).join(" ");
+}
 function ko(){if((D.feeds_ko||[]).length)$("#ko").innerHTML='<p class="tiny">Flux sans réponse ce jour : '+esc(D.feeds_ko.join(", "))+"</p>"}
-bar();monte();chiffres();draw();raw();ko();
+bar();monte();chiffres();draw();raw();ko();arch();
 </script></body></html>
