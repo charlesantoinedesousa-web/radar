@@ -214,7 +214,12 @@ partie des 10 fiches : mets-le dans "ca_monte".
 (événements, personnalités, sorties, polémiques, météo, sport, culture). Pour chacun : "pourquoi" (la cause, uniquement si un signal l'établit, \
 sinon écris exactement "cause non identifiée dans les signaux"), "mesure" (chiffre repris d'un signal, ex. "x10 vs moyenne"), "rebondable" (booléen), \
 "precaution" (ton à tenir ou raison de s'abstenir) et "idee" (une piste de rebond d'une phrase, null si non rebondable).
-Réponds UNIQUEMENT en JSON : {"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"titre","categorie","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
+"chiffres" = 5 à 8 chiffres, études ou sondages du jour repris TELS QUELS des signaux (jamais reformulés en un autre chiffre) : \
+"chiffre" (ex. "1 %"), "phrase" (ce qu'il mesure, d'après le signal), "source" (institut ou média tel qu'il apparaît dans le signal), "signal_ids". \
+Si moins de 5 chiffres figurent dans les signaux, n'en liste que ce qui existe.
+ANGLES : un angle part d'une tension réelle et prend position (« ce que la marque dit que les autres n'osent pas »). Interdit : slogans génériques, \
+promesses vagues (« infiniment plus de goût »), jeux de mots creux. Le message doit pouvoir être affiché tel quel, en une à deux phrases.
+Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"titre","categorie","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
 
 
 def call_llm(user_msg):
@@ -310,7 +315,7 @@ def synthesize(signals):
             if attempt == 2:
                 raise
             print("[!] réponse du modèle incomplète, nouvel essai", file=sys.stderr)
-    fiches, monte = data.get("fiches", []), data.get("ca_monte", [])
+    fiches, monte, chiffres = data.get("fiches", []), data.get("ca_monte", []), data.get("chiffres", [])
     by_id = {s["id"]: s for s in signals}
 
     def liens(ids):  # liens réels reconduits depuis les signaux, jamais générés
@@ -328,9 +333,9 @@ def synthesize(signals):
             monte.append({"sujet": f.get("titre", ""), "pourquoi": f.get("signal", ""), "mesure": f.get("preuve") or "",
                           "rebondable": False, "precaution": f.get("risque", ""), "idee": None,
                           "signal_ids": f.get("signal_ids", [])})
-    for m in monte:
+    for m in monte + chiffres:
         m["liens"] = liens(m.get("signal_ids", []))
-    return keep, monte
+    return keep, monte, chiffres
 
 
 # ---------- Sortie ----------
@@ -363,14 +368,14 @@ def main():
     now = dt.datetime.now().strftime("%d/%m/%Y %H:%M")
     if a.demo:
         fiches = json.loads((HERE / "demo.json").read_text(encoding="utf-8"))
-        return render({"mode": "demo", "generated": now, "fiches": fiches, "ca_monte": [], "feeds_ko": [], "signals": []})
+        return render({"mode": "demo", "generated": now, "fiches": fiches, "ca_monte": [], "chiffres": [], "feeds_ko": [], "signals": []})
     signals = collect()
     print(f"{len(signals)} signaux collectés : " + ", ".join(sorted({x['source'] for x in signals})))
     if not signals:
         sys.exit("Aucun signal : vérifie ta connexion / les accès réseau.")
     notify(signals)
-    fiches, monte = ([], []) if a.raw else synthesize(signals)
-    render({"mode": "raw" if a.raw else "live", "generated": now, "fiches": fiches, "ca_monte": monte,
+    fiches, monte, chiffres = ([], [], []) if a.raw else synthesize(signals)
+    render({"mode": "raw" if a.raw else "live", "generated": now, "fiches": fiches, "ca_monte": monte, "chiffres": chiffres,
             "feeds_ko": FEEDS_KO, "signals": signals})
 
 

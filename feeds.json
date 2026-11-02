@@ -165,13 +165,13 @@
  {
   "name": "GActu · sondages",
   "url": "https://news.google.com/rss/search?q=sondage+Ifop+OR+Elabe+OR+OpinionWay+OR+Harris+OR+Odoxa+OR+Toluna+Fran%C3%A7ais+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
-  "n": 5,
+  "n": 8,
   "max_age_h": 72
  },
  {
   "name": "GActu · études conso",
   "url": "https://news.google.com/rss/search?q=barom%C3%A8tre+OR+%C3%A9tude+ADEME+OR+Kantar+OR+Greenflex+OR+Credoc+consommateurs+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
-  "n": 5,
+  "n": 8,
   "max_age_h": 72
  },
  {
@@ -280,5 +280,23 @@
   "name": "Lemmy.world (Hot)",
   "url": "https://lemmy.world/feeds/all.xml?sort=Hot",
   "n": 6
+ },
+ {
+  "name": "GActu · « selon une étude »",
+  "url": "https://news.google.com/rss/search?q=%22selon+une+%C3%A9tude%22+OR+%22selon+un+sondage%22+Fran%C3%A7ais+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 8,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · baromètres",
+  "url": "https://news.google.com/rss/search?q=barom%C3%A8tre+2026+Fran%C3%A7ais+OR+France+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 6,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · « % des Français »",
+  "url": "https://news.google.com/rss/search?q=%22%25+des+Fran%C3%A7ais%22+OR+%22%25+des+jeunes%22+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 8,
+  "max_age_h": 72
  }
 ]
