@@ -222,9 +222,11 @@ partie des 10 fiches : mets-le dans "ca_monte".
 (événements, personnalités, sorties, polémiques, météo, sport, culture). Pour chacun : "pourquoi" (la cause, uniquement si un signal l'établit, \
 sinon écris exactement "cause non identifiée dans les signaux"), "mesure" (chiffre repris d'un signal, ex. "x10 vs moyenne"), "rebondable" (booléen), \
 "precaution" (ton à tenir ou raison de s'abstenir) et "idee" (une piste de rebond d'une phrase, null si non rebondable).
-"chiffres" = 5 à 8 chiffres, études ou sondages du jour repris TELS QUELS des signaux (jamais reformulés en un autre chiffre) : \
+"chiffres" = 5 à 8 chiffres (un seul par signal, pas de doublon), études ou sondages du jour repris TELS QUELS des signaux (jamais reformulés en un autre chiffre) : \
 "chiffre" (ex. "1 %"), "phrase" (ce qu'il mesure, d'après le signal), "source" (institut ou média tel qu'il apparaît dans le signal), "signal_ids". \
 Si moins de 5 chiffres figurent dans les signaux, n'en liste que ce qui existe.
+STYLE : français correct et sobre. Jamais de mot inventé, de métaphore physique (« s'arrachent les cheveux ») ni d'emphase (« colère épidermique »). \
+L'insight doit se lire comme une phrase naturelle : la structure comportement / tension / contraste est implicite, pas récitée mot pour mot.
 INSIGHT : chaque fiche a un champ "insight" : UNE phrase du type « Les gens [comportement/ressenti], parce que [tension], alors que [ce que les marques font encore] ». \
 L'angle et le message en découlent directement ; si tu n'arrives pas à formuler l'insight, n'écris pas la fiche.
 CHIFFRES UTILES : ne retiens dans "chiffres" que ceux qui éclairent consommation, usages, marques, tech, travail, médias ou culture. Écarte les chiffres \
@@ -324,6 +326,9 @@ CRITÈRES : zéro marronnier déjà rincé ; priorité aux frictions (agacement,
 privilégie les sujets confirmés par au moins 2 sources différentes ; au moins 4 sujets venus de la culture, de la tech underground ou des communautés \
 (pas seulement des actualités généralistes) ; au moins 6 sujets français ou européens ; ne répète pas les sujets déjà traités ; \
 les sujets sensibles (deuil, drame, crime, hack, polémique clivante) vont dans « ca_monte », jamais dans « fiches ».
+ÉQUILIBRE OBLIGATOIRE DES 10 FICHES : pas plus de 3 sujets tech/IA/numérique ; au moins 1 sujet food/lifestyle, 1 mode/design/esthétique, \
+1 culture/musique/mèmes, 1 travail/société, 1 consommation/retail. Pour les 8 chiffres : un seul chiffre par signal, des chiffres français ou \
+européens de préférence.
 Réponds UNIQUEMENT en JSON : {"fiches":[{"sujet":"","signal_ids":[],"urgence":"chaud|montant|fond"}],"ca_monte":[{"sujet":"","signal_ids":[]}],"chiffres":[{"signal_ids":[]}]}"""
 
 MONTE = """Tu mets à jour la rubrique « Ça monte aujourd'hui » d'une revue de presse pour un directeur de création. À partir des SIGNAUX (pics Wikipédia, \
@@ -333,6 +338,28 @@ Pour chacun : "sujet", "pourquoi" (la cause, uniquement si un signal l'établit,
 "precaution" (ton à tenir ou raison de s'abstenir), "idee" (une piste de rebond d'une phrase, null si non rebondable), "signal_ids". \
 N'invente aucun chiffre ni cause. Ne répète pas les sujets déjà traités ce matin sauf évolution notable.
 Réponds UNIQUEMENT en JSON : {"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}]}"""
+
+
+SENSIBLE = re.compile(r"\b(mort|morts|décès|décédé|meurt|disparition d[eu]|hommage national|deuil|attentat|attaque|fusillade|crash|accident|tué|tués|victimes?|suicide|guerre|massacre|incendie meurtrier)\b", re.I)
+
+
+def _securise(monte):
+    """Filet de sécurité : un sujet de deuil / drame n'est jamais « rebondable », quoi qu'ait répondu le modèle."""
+    for m in monte:
+        if SENSIBLE.search(f"{m.get('sujet', '')} {m.get('pourquoi', '')}"):
+            m["rebondable"], m["idee"] = False, None
+            m["precaution"] = m.get("precaution") or "Sujet sensible : ne pas rebondir."
+    return monte
+
+
+def _dedoublonne(chiffres):
+    seen, out = set(), []
+    for c in chiffres:
+        k = re.sub(r"\W+", " ", (c.get("phrase") or "").lower())[:60]
+        if k and k not in seen:
+            seen.add(k)
+            out.append(c)
+    return out[:8]
 
 
 def _lines(signals):
@@ -361,7 +388,7 @@ def synthesize_monte(signals):
     prompt = (f"Date : {dt.datetime.now():%d/%m/%Y %H:%M}\n"
               + (("SUJETS DÉJÀ TRAITÉS : " + " ; ".join(seen) + "\n") if seen else "") + "SIGNAUX :\n" + "\n".join(_lines(signals)))
     monte = _json(prompt, MONTE).get("ca_monte", [])
-    for m in monte:
+    for m in _securise(monte):
         m["liens"] = _liens(by_id, m.get("signal_ids", []))
     return monte
 
@@ -396,12 +423,13 @@ def synthesize(signals):
         if f.get("urgence") not in ("chaud", "montant", "fond"):
             f["urgence"] = "montant"
         f["liens"] = _liens(by_id, f.get("signal_ids", []))
-        if f.get("angles"):
+        if f.get("angles") and not SENSIBLE.search(f.get("titre", "")):
             keep.append(f)
         else:  # fiche sans angle : bascule dans « Ça monte »
             monte.append({"sujet": f.get("titre", ""), "pourquoi": f.get("signal", ""), "mesure": f.get("preuve") or "",
                           "rebondable": False, "precaution": f.get("risque", ""), "idee": None,
                           "signal_ids": f.get("signal_ids", [])})
+    monte, chiffres = _securise(monte), _dedoublonne(chiffres)
     for m in monte + chiffres:
         m["liens"] = _liens(by_id, m.get("signal_ids", []))
     return keep, monte, chiffres
