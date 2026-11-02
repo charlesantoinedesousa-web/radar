@@ -8,7 +8,7 @@ Usage:
 Env: GEMINI_API_KEY (gratuit) ou ANTHROPIC_API_KEY, RADAR_MODEL,
      RADAR_WEBHOOK (Slack/Discord/Teams-compatible, alerte sur les pics), RADAR_CONTACT
 """
-import argparse, datetime as dt, html, json, math, os, re, sys, urllib.error, urllib.request
+import argparse, datetime as dt, html, json, math, os, re, sys, time, urllib.error, urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -138,23 +138,39 @@ def call_llm(user_msg):
             with urllib.request.urlopen(req, timeout=180) as r:
                 parts = json.load(r)["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts)
-        model = os.environ.get("RADAR_MODEL", "gemini-3.8-flash")
-        try:
-            return ask(model)
-        except urllib.error.HTTPError as e:
-            if e.code != 404:
-                raise
-            # modèle retiré : on prend le "flash" le plus récent proposé par l'API
+        def ask_retry(model, waits=(15, 45, 90)):
+            for i in range(len(waits) + 1):
+                try:
+                    return ask(model)
+                except urllib.error.HTTPError as e:
+                    if e.code not in (429, 500, 502, 503, 504) or i == len(waits):
+                        raise
+                    print(f"[!] {model} saturé ({e.code}), nouvel essai dans {waits[i]}s", file=sys.stderr)
+                    time.sleep(waits[i])
+
+        def others(exclude):  # autres modèles flash stables, du plus récent au plus ancien
             req = urllib.request.Request("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
                                          headers={"x-goog-api-key": gem})
-            models = json.load(urllib.request.urlopen(req, timeout=30))["models"]
-            flash = sorted(m["name"].split("/")[-1] for m in models
-                           if "flash" in m["name"] and "generateContent" in m.get("supportedGenerationMethods", [])
-                           and not re.search(r"lite|image|tts|live|preview|exp|thinking", m["name"]))
-            if not flash:
+            ms = json.load(urllib.request.urlopen(req, timeout=30))["models"]
+            names = sorted((m["name"].split("/")[-1] for m in ms
+                            if "flash" in m["name"] and "generateContent" in m.get("supportedGenerationMethods", [])
+                            and not re.search(r"image|tts|live|preview|exp|thinking", m["name"])), reverse=True)
+            return [n for n in names if n != exclude]
+
+        model = os.environ.get("RADAR_MODEL", "gemini-3.8-flash")
+        try:
+            return ask_retry(model)
+        except urllib.error.HTTPError as e:
+            if e.code not in (404, 429, 500, 502, 503, 504):
                 raise
-            print(f"[!] modèle {model} indisponible, bascule sur {flash[-1]}", file=sys.stderr)
-            return ask(flash[-1])
+            err = e
+        for alt in others(model)[:3]:
+            print(f"[!] modèle {model} indisponible, essai avec {alt}", file=sys.stderr)
+            try:
+                return ask_retry(alt, waits=(20,))
+            except urllib.error.HTTPError as e:
+                err = e
+        raise err
     if ant:
         body = {"model": os.environ.get("RADAR_MODEL", "claude-sonnet-5-5"), "max_tokens": 8000,
                 "system": SYSTEM, "messages": [{"role": "user", "content": user_msg}]}
