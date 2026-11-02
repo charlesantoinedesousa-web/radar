@@ -298,5 +298,317 @@
   "url": "https://news.google.com/rss/search?q=%22%25+des+Fran%C3%A7ais%22+OR+%22%25+des+jeunes%22+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
   "n": 8,
   "max_age_h": 72
+ },
+ {
+  "name": "Slate.fr",
+  "url": "https://www.slate.fr/rss.xml",
+  "site": "slate.fr"
+ },
+ {
+  "name": "Les Inrocks",
+  "url": "https://www.lesinrocks.com/feed/",
+  "site": "lesinrocks.com"
+ },
+ {
+  "name": "Konbini",
+  "url": "https://www.konbini.com/feed/",
+  "site": "konbini.com"
+ },
+ {
+  "name": "Madmoizelle",
+  "url": "https://www.madmoizelle.com/feed",
+  "site": "madmoizelle.com"
+ },
+ {
+  "name": "Télérama",
+  "url": "https://www.telerama.fr/rss/une.xml",
+  "site": "telerama.fr"
+ },
+ {
+  "name": "Le Bonbon",
+  "url": "https://www.lebonbon.fr/feed/",
+  "site": "lebonbon.fr"
+ },
+ {
+  "name": "Brut",
+  "url": "https://news.google.com/rss/search?q=site%3Abrut.media+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr"
+ },
+ {
+  "name": "Le Monde · Société",
+  "url": "https://www.lemonde.fr/societe/rss_full.xml",
+  "site": "lemonde.fr"
+ },
+ {
+  "name": "Le Monde · Pixels (tech)",
+  "url": "https://www.lemonde.fr/pixels/rss_full.xml",
+  "site": "lemonde.fr"
+ },
+ {
+  "name": "Le Monde · M le mag",
+  "url": "https://www.lemonde.fr/m-le-mag/rss_full.xml",
+  "site": "lemonde.fr"
+ },
+ {
+  "name": "Le Parisien",
+  "url": "https://feeds.leparisien.fr/leparisien/rss",
+  "site": "leparisien.fr"
+ },
+ {
+  "name": "Socialter",
+  "url": "https://news.google.com/rss/search?q=site%3Asocialter.fr+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr",
+  "max_age_h": 240
+ },
+ {
+  "name": "Welcome to the Jungle",
+  "url": "https://news.google.com/rss/search?q=site%3Awelcometothejungle.com+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr"
+ },
+ {
+  "name": "Stratégies",
+  "url": "https://news.google.com/rss/search?q=site%3Astrategies.fr+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr"
+ },
+ {
+  "name": "CB News",
+  "url": "https://news.google.com/rss/search?q=site%3Acbnews.fr+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr"
+ },
+ {
+  "name": "Influencia",
+  "url": "https://www.influencia.net/feed/",
+  "site": "influencia.net"
+ },
+ {
+  "name": "Culture RP / Offremedia",
+  "url": "https://news.google.com/rss/search?q=site%3Aoffremedia.com+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr"
+ },
+ {
+  "name": "Culture Pub",
+  "url": "https://news.google.com/rss/search?q=site%3Aculturepub.fr+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr"
+ },
+ {
+  "name": "Les Echos · Tech & Médias",
+  "url": "https://news.google.com/rss/search?q=site%3Alesechos.fr+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr"
+ },
+ {
+  "name": "Korben",
+  "url": "https://korben.info/feed",
+  "site": "korben.info"
+ },
+ {
+  "name": "Next",
+  "url": "https://next.ink/feed/",
+  "site": "next.ink"
+ },
+ {
+  "name": "Journal du Geek",
+  "url": "https://www.journaldugeek.com/feed/",
+  "site": "journaldugeek.com"
+ },
+ {
+  "name": "Presse-citron",
+  "url": "https://www.presse-citron.net/feed/",
+  "site": "presse-citron.net"
+ },
+ {
+  "name": "Siècle Digital",
+  "url": "https://siecledigital.fr/feed/",
+  "site": "siecledigital.fr"
+ },
+ {
+  "name": "Frandroid",
+  "url": "https://www.frandroid.com/feed",
+  "site": "frandroid.com"
+ },
+ {
+  "name": "Clubic",
+  "url": "https://www.clubic.com/feed/",
+  "site": "clubic.com"
+ },
+ {
+  "name": "The Verge",
+  "url": "https://www.theverge.com/rss/index.xml",
+  "site": "theverge.com"
+ },
+ {
+  "name": "Wired",
+  "url": "https://www.wired.com/feed/rss",
+  "site": "wired.com"
+ },
+ {
+  "name": "404 Media",
+  "url": "https://www.404media.co/rss/",
+  "site": "404media.co"
+ },
+ {
+  "name": "Rest of World",
+  "url": "https://restofworld.org/feed/",
+  "site": "restofworld.org"
+ },
+ {
+  "name": "Ars Technica",
+  "url": "https://feeds.arstechnica.com/arstechnica/index",
+  "site": "arstechnica.com"
+ },
+ {
+  "name": "TechCrunch",
+  "url": "https://techcrunch.com/feed/",
+  "site": "techcrunch.com"
+ },
+ {
+  "name": "Lobsters",
+  "url": "https://lobste.rs/rss",
+  "site": "lobste.rs"
+ },
+ {
+  "name": "Product Hunt",
+  "url": "https://www.producthunt.com/feed",
+  "site": "producthunt.com"
+ },
+ {
+  "name": "Axios",
+  "url": "https://api.axios.com/feed/",
+  "site": "axios.com"
+ },
+ {
+  "name": "Vox",
+  "url": "https://www.vox.com/rss/index.xml",
+  "site": "vox.com"
+ },
+ {
+  "name": "The Atlantic",
+  "url": "https://www.theatlantic.com/feed/all/",
+  "site": "theatlantic.com"
+ },
+ {
+  "name": "Fast Company",
+  "url": "https://www.fastcompany.com/latest/rss",
+  "site": "fastcompany.com"
+ },
+ {
+  "name": "Nieman Lab",
+  "url": "https://www.niemanlab.org/feed/",
+  "site": "niemanlab.org",
+  "max_age_h": 96
+ },
+ {
+  "name": "Atlas Obscura",
+  "url": "https://www.atlasobscura.com/feeds/latest",
+  "site": "atlasobscura.com",
+  "max_age_h": 96
+ },
+ {
+  "name": "Aeon",
+  "url": "https://aeon.co/feed.rss",
+  "site": "aeon.co",
+  "max_age_h": 168
+ },
+ {
+  "name": "The Conversation (global)",
+  "url": "https://theconversation.com/global/articles.atom",
+  "site": "theconversation.com"
+ },
+ {
+  "name": "Spiegel International",
+  "url": "https://www.spiegel.de/international/index.rss",
+  "site": "spiegel.de"
+ },
+ {
+  "name": "The Guardian · Lifestyle",
+  "url": "https://www.theguardian.com/lifeandstyle/rss",
+  "site": "theguardian.com"
+ },
+ {
+  "name": "Highsnobiety",
+  "url": "https://www.highsnobiety.com/feed/",
+  "site": "highsnobiety.com"
+ },
+ {
+  "name": "Hypebeast",
+  "url": "https://hypebeast.com/feed",
+  "site": "hypebeast.com"
+ },
+ {
+  "name": "i-D",
+  "url": "https://i-d.co/feed/",
+  "site": "i-d.co"
+ },
+ {
+  "name": "Sabukaru",
+  "url": "https://news.google.com/rss/search?q=site%3Asabukaru.online+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr",
+  "max_age_h": 240
+ },
+ {
+  "name": "032c",
+  "url": "https://news.google.com/rss/search?q=site%3A032c.com+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr",
+  "max_age_h": 240
+ },
+ {
+  "name": "The Business of Fashion",
+  "url": "https://news.google.com/rss/search?q=site%3Abusinessoffashion.com+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr",
+  "max_age_h": 120
+ },
+ {
+  "name": "Creative Review",
+  "url": "https://www.creativereview.co.uk/feed/",
+  "site": "creativereview.co.uk"
+ },
+ {
+  "name": "Adweek",
+  "url": "https://www.adweek.com/feed/",
+  "site": "adweek.com"
+ },
+ {
+  "name": "Campaign",
+  "url": "https://news.google.com/rss/search?q=site%3Acampaignlive.com+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr"
+ },
+ {
+  "name": "The Drum",
+  "url": "https://news.google.com/rss/search?q=site%3Athedrum.com+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr"
+ },
+ {
+  "name": "Pitchfork",
+  "url": "https://pitchfork.com/feed/feed-news/rss",
+  "site": "pitchfork.com"
+ },
+ {
+  "name": "The Quietus",
+  "url": "https://thequietus.com/feed/",
+  "site": "thequietus.com",
+  "max_age_h": 120
+ },
+ {
+  "name": "MOLD Magazine",
+  "url": "https://news.google.com/rss/search?q=site%3Aeatthemold.com+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr",
+  "max_age_h": 240
+ },
+ {
+  "name": "Our World in Data",
+  "url": "https://ourworldindata.org/atom.xml",
+  "site": "ourworldindata.org",
+  "max_age_h": 240
+ },
+ {
+  "name": "Statista (chart of the day)",
+  "url": "https://news.google.com/rss/search?q=site%3Astatista.com+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr",
+  "max_age_h": 240
+ },
+ {
+  "name": "INSEE",
+  "url": "https://news.google.com/rss/search?q=site%3Ainsee.fr+when%3A7d&hl=fr&gl=FR&ceid=FR%3Afr",
+  "max_age_h": 240
+ },
+ {
+  "name": "Lemmy · technology",
+  "url": "https://lemmy.world/feeds/c/technology.xml?sort=Hot"
+ },
+ {
+  "name": "Lemmy · privacy",
+  "url": "https://lemmy.world/feeds/c/privacy.xml?sort=Hot"
+ },
+ {
+  "name": "Lemmy · memes",
+  "url": "https://lemmy.world/feeds/c/memes.xml?sort=Hot"
+ },
+ {
+  "name": "Lemmy · asklemmy",
+  "url": "https://lemmy.world/feeds/c/asklemmy.xml?sort=Hot"
  }
 ]

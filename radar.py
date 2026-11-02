@@ -11,6 +11,7 @@ Env: GEMINI_API_KEY (gratuit) ou ANTHROPIC_API_KEY, RADAR_MODEL,
 import argparse, datetime as dt, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -123,26 +124,32 @@ def _when(s):
 FEEDS_KO = []
 
 
-def feeds(max_age_h=72, per_feed=4):
+def feeds(max_age_h=72, per_feed=3):
     """Articles récents des flux de feeds.json (modifiable). Les flux en panne sont ignorés."""
     cfg = json.loads((HERE / "feeds.json").read_text(encoding="utf-8"))
     now = dt.datetime.now(dt.timezone.utc)
     out, ok, ko = [], [], []
-    for f in cfg:
+
+    def load(f):
         try:
-            root = ET.fromstring(get(f["url"], timeout=15))
+            return ET.fromstring(get(f["url"], timeout=15))
         except Exception:
-            root = None
-            if f.get("site"):  # flux bloqué : on passe par l'index Google Actualités du site
-                q = urllib.parse.quote_plus(f"site:{f['site']} when:14d")
-                try:
-                    root = ET.fromstring(get(f"https://news.google.com/rss/search?q={q}&hl=fr&gl=FR&ceid=FR:fr", timeout=15))
-                except Exception:
-                    root = None
-            if root is None:
-                ko.append(f["name"])
-                FEEDS_KO.append(f["name"])
-                continue
+            pass
+        if f.get("site"):  # flux bloqué : on passe par l'index Google Actualités du site
+            q = urllib.parse.quote_plus(f"site:{f['site']} when:14d")
+            try:
+                return ET.fromstring(get(f"https://news.google.com/rss/search?q={q}&hl=fr&gl=FR&ceid=FR:fr", timeout=15))
+            except Exception:
+                pass
+        return None
+
+    with ThreadPoolExecutor(max_workers=12) as ex:
+        roots = list(ex.map(load, cfg))
+    for f, root in zip(cfg, roots):
+        if root is None:
+            ko.append(f["name"])
+            FEEDS_KO.append(f["name"])
+            continue
         items = [e for e in root.iter() if e.tag.split("}")[-1] in ("item", "entry")]
         n = 0
         for it in items:
@@ -172,10 +179,11 @@ def collect():
     for fn, label in [(wikipedia_spikes, "wikipedia"), (google_trends, "google_trends"),
                       (lambda: wikipedia_spikes("en", min_views=40000, limit=10), "wikipedia_en"),
                       (lambda: google_trends("US", 8), "trends_us"), (lambda: google_trends("GB", 8), "trends_gb"),
-                      (lambda: google_trends("JP", 6), "trends_jp"),
+                      (lambda: google_trends("JP", 6), "trends_jp"), (lambda: google_trends("DE", 6), "trends_de"),
+                      (lambda: google_trends("BR", 6), "trends_br"),
                       (google_news, "google_news"), (hacker_news, "hacker_news"), (feeds, "flux")]:
         signals += safe(fn, label)
-    signals = signals[:260]
+    signals = signals[:400]
     for i, s in enumerate(signals):
         s["id"] = i
     return signals
@@ -226,12 +234,13 @@ promesses vagues (« infiniment plus de goût »), jeux de mots creux. Le messag
 Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"titre","categorie","insight","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
 
 
-def call_llm(user_msg):
+def call_llm(user_msg, system=None):
     """Gemini (gratuit) si GEMINI_API_KEY, sinon Claude si ANTHROPIC_API_KEY."""
+    system = system or SYSTEM
     gem, ant = os.environ.get("GEMINI_API_KEY"), os.environ.get("ANTHROPIC_API_KEY")
     if gem:
         def ask(model):
-            body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
+            body = {"systemInstruction": {"parts": [{"text": system}]},
                     "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
                     "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 12000}}
             req = urllib.request.Request(
@@ -280,7 +289,7 @@ def call_llm(user_msg):
         raise err
     if ant:
         body = {"model": os.environ.get("RADAR_MODEL", "claude-sonnet-5-5"), "max_tokens": 8000,
-                "system": SYSTEM, "messages": [{"role": "user", "content": user_msg}]}
+                "system": system, "messages": [{"role": "user", "content": user_msg}]}
         req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(),
                                      {"content-type": "application/json", "x-api-key": ant,
                                       "anthropic-version": "2023-06-01"})
@@ -293,7 +302,9 @@ def recent_topics(days=3):
     """Titres des derniers jours (output/history) pour éviter de répéter les mêmes sujets."""
     out = []
     for p in sorted((OUT / "history").glob("*.json"))[-(days + 1):]:
-        if p.stem == f"{dt.date.today():%Y-%m-%d}":
+        if days > 0 and p.stem == f"{dt.date.today():%Y-%m-%d}":
+            continue
+        if days == 0 and p.stem != f"{dt.date.today():%Y-%m-%d}":
             continue
         try:
             d = json.loads(p.read_text(encoding="utf-8"))
@@ -303,34 +314,88 @@ def recent_topics(days=3):
     return out
 
 
-def synthesize(signals):
-    lines = [f"[{s['id']}] ({s['source']}) {s['title']} | {s['metric']} {('| ' + s['note']) if s.get('note') else ''}"
-             for s in signals]
-    seen = recent_topics()
-    prompt = (f"Date : {dt.date.today():%d/%m/%Y}\n"
-              + (("SUJETS DÉJÀ TRAITÉS CES DERNIERS JOURS (ne les répète pas, sauf évolution notable) : " + " ; ".join(seen) + "\n") if seen else "")
-              + "SIGNAUX :\n" + "\n".join(lines))
+SELECT = """Tu es le rédacteur en chef d'une revue de presse pour un directeur de création en agence. À partir des SIGNAUX, tu SÉLECTIONNES les sujets ; \
+un rédacteur écrira ensuite les fiches. Choisis :
+- 10 sujets de fiches (environ 4 liés à l'actualité chaude, 6 frictions / contre-tendances / signaux) ;
+- 7 sujets « ça monte aujourd'hui » (pics Wikipédia, Google Trends, Google Actualités : événements, personnalités, sorties, polémiques) ;
+- 8 signaux contenant un chiffre, une étude ou un sondage utiles (consommation, usages, marques, tech, travail, médias, culture ; jamais faits divers, \
+santé grave, suicide, fin de vie, justice, politique partisane).
+CRITÈRES : zéro marronnier déjà rincé ; priorité aux frictions (agacement, saturation, rejet) et aux contrecoups ; regroupe les signaux d'un même sujet ; \
+privilégie les sujets confirmés par au moins 2 sources différentes ; au moins 4 sujets venus de la culture, de la tech underground ou des communautés \
+(pas seulement des actualités généralistes) ; au moins 6 sujets français ou européens ; ne répète pas les sujets déjà traités ; \
+les sujets sensibles (deuil, drame, crime, hack, polémique clivante) vont dans « ca_monte », jamais dans « fiches ».
+Réponds UNIQUEMENT en JSON : {"fiches":[{"sujet":"","signal_ids":[],"urgence":"chaud|montant|fond"}],"ca_monte":[{"sujet":"","signal_ids":[]}],"chiffres":[{"signal_ids":[]}]}"""
+
+MONTE = """Tu mets à jour la rubrique « Ça monte aujourd'hui » d'une revue de presse pour un directeur de création. À partir des SIGNAUX (pics Wikipédia, \
+Google Trends, Google Actualités, communautés), liste 6 à 8 sujets qui MONTENT maintenant (événements, personnalités, sorties, polémiques, météo, sport, culture). \
+Pour chacun : "sujet", "pourquoi" (la cause, uniquement si un signal l'établit, sinon écris exactement "cause non identifiée dans les signaux"), \
+"mesure" (chiffre repris d'un signal), "rebondable" (booléen ; false si deuil, drame, crime, catastrophe, polémique clivante), \
+"precaution" (ton à tenir ou raison de s'abstenir), "idee" (une piste de rebond d'une phrase, null si non rebondable), "signal_ids". \
+N'invente aucun chiffre ni cause. Ne répète pas les sujets déjà traités ce matin sauf évolution notable.
+Réponds UNIQUEMENT en JSON : {"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}]}"""
+
+
+def _lines(signals):
+    return [f"[{s['id']}] ({s['source']}) {s['title']} | {s['metric']} {('| ' + s['note']) if s.get('note') else ''}" for s in signals]
+
+
+def _json(prompt, system):
     for attempt in (1, 2):
-        text = call_llm(prompt)
+        text = call_llm(prompt, system)
         try:
-            data = json.loads(text[text.index("{"): text.rindex("}") + 1])
-            break
+            return json.loads(text[text.index("{"): text.rindex("}") + 1])
         except ValueError:
             if attempt == 2:
                 raise
             print("[!] réponse du modèle incomplète, nouvel essai", file=sys.stderr)
-    fiches, monte, chiffres = data.get("fiches", []), data.get("ca_monte", []), data.get("chiffres", [])
-    by_id = {s["id"]: s for s in signals}
 
-    def liens(ids):  # liens réels reconduits depuis les signaux, jamais générés
-        return [{"label": f"{by_id[i]['title'][:70]} ({by_id[i]['source']}{', ' + by_id[i]['metric'] if by_id[i].get('age') is not None else ''})",
-                 "url": by_id[i]["url"]} for i in ids if i in by_id][:4]
+
+def _liens(by_id, ids):  # liens réels reconduits depuis les signaux, jamais générés
+    return [{"label": f"{by_id[i]['title'][:70]} ({by_id[i]['source']}{', ' + by_id[i]['metric'] if by_id[i].get('age') is not None else ''})",
+             "url": by_id[i]["url"]} for i in ids if i in by_id][:4]
+
+
+def synthesize_monte(signals):
+    by_id = {s["id"]: s for s in signals}
+    seen = recent_topics(0)
+    prompt = (f"Date : {dt.datetime.now():%d/%m/%Y %H:%M}\n"
+              + (("SUJETS DÉJÀ TRAITÉS : " + " ; ".join(seen) + "\n") if seen else "") + "SIGNAUX :\n" + "\n".join(_lines(signals)))
+    monte = _json(prompt, MONTE).get("ca_monte", [])
+    for m in monte:
+        m["liens"] = _liens(by_id, m.get("signal_ids", []))
+    return monte
+
+
+def synthesize(signals):
+    by_id = {s["id"]: s for s in signals}
+    seen = recent_topics()
+    head = (f"Date : {dt.date.today():%d/%m/%Y}\n"
+            + (("SUJETS DÉJÀ TRAITÉS CES DERNIERS JOURS (ne les répète pas, sauf évolution notable) : " + " ; ".join(seen) + "\n") if seen else ""))
+    # passe 1 : sélection des sujets (réponse courte, ids seulement)
+    sel = None
+    try:
+        sel = _json(head + "SIGNAUX :\n" + "\n".join(_lines(signals)), SELECT)
+        ids = {i for k in ("fiches", "ca_monte", "chiffres") for it in sel.get(k, []) for i in it.get("signal_ids", []) if i in by_id}
+        if len(sel.get("fiches", [])) < 5 or not ids:
+            sel = None
+    except Exception as e:
+        print(f"[!] sélection impossible ({e}), passage en une seule étape", file=sys.stderr)
+    # passe 2 : rédaction à partir des seuls signaux retenus
+    if sel:
+        subset = [by_id[i] for i in sorted(ids)]
+        prompt = (head + "SÉLECTION DU RÉDACTEUR EN CHEF (écris exactement une fiche par sujet de \"fiches\", une entrée \"ca_monte\" par sujet de "
+                  "\"ca_monte\", et extrais les \"chiffres\" des signaux listés ; écarte un sujet seulement si tu ne peux pas formuler son insight) :\n"
+                  + json.dumps(sel, ensure_ascii=False) + "\nSIGNAUX RETENUS :\n" + "\n".join(_lines(subset)))
+    else:
+        prompt = head + "SIGNAUX :\n" + "\n".join(_lines(signals))
+    data = _json(prompt, SYSTEM)
+    fiches, monte, chiffres = data.get("fiches", []), data.get("ca_monte", []), data.get("chiffres", [])
 
     keep = []
     for f in fiches:
         if f.get("urgence") not in ("chaud", "montant", "fond"):
             f["urgence"] = "montant"
-        f["liens"] = liens(f.get("signal_ids", []))
+        f["liens"] = _liens(by_id, f.get("signal_ids", []))
         if f.get("angles"):
             keep.append(f)
         else:  # fiche sans angle : bascule dans « Ça monte »
@@ -338,7 +403,7 @@ def synthesize(signals):
                           "rebondable": False, "precaution": f.get("risque", ""), "idee": None,
                           "signal_ids": f.get("signal_ids", [])})
     for m in monte + chiffres:
-        m["liens"] = liens(m.get("signal_ids", []))
+        m["liens"] = _liens(by_id, m.get("signal_ids", []))
     return keep, monte, chiffres
 
 
@@ -374,16 +439,25 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", action="store_true", help="signaux bruts, sans Claude")
     ap.add_argument("--demo", action="store_true", help="fiches d'exemple hors ligne")
+    ap.add_argument("--monte", action="store_true", help="mise à jour de midi : seulement « Ça monte »")
     a = ap.parse_args()
     now = dt.datetime.now().strftime("%d/%m/%Y %H:%M")
     if a.demo:
         fiches = json.loads((HERE / "demo.json").read_text(encoding="utf-8"))
         return render({"mode": "demo", "generated": now, "fiches": fiches, "ca_monte": [], "chiffres": [], "feeds_ko": [], "signals": []})
+    prev = None
+    if a.monte and (OUT / "latest.json").exists():
+        prev = json.loads((OUT / "latest.json").read_text(encoding="utf-8"))
+        if prev.get("mode") != "live" or prev.get("generated", "")[:10] != f"{dt.date.today():%d/%m/%Y}":
+            prev = None  # pas d'édition du jour : on lance l'édition complète
     signals = collect()
     print(f"{len(signals)} signaux collectés : " + ", ".join(sorted({x['source'] for x in signals})))
     if not signals:
         sys.exit("Aucun signal : vérifie ta connexion / les accès réseau.")
     notify(signals)
+    if prev:
+        prev.update({"ca_monte": synthesize_monte(signals), "generated": now, "feeds_ko": FEEDS_KO, "signals": signals})
+        return render(prev)
     fiches, monte, chiffres = ([], [], []) if a.raw else synthesize(signals)
     render({"mode": "raw" if a.raw else "live", "generated": now, "fiches": fiches, "ca_monte": monte, "chiffres": chiffres,
             "feeds_ko": FEEDS_KO, "signals": signals})
