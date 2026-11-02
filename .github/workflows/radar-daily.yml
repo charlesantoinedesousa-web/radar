@@ -17,4 +17,4 @@ jobs:
       - name: Publier le brief du jour
         run: |
           git config user.name radar && git config user.email radar@users.noreply.github.com
-          git add output && git commit -m "Brief du $(date +%F)" && git push || true
+          git add docs && git commit -m "Brief du $(date +%F)" && git push || true
