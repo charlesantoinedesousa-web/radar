@@ -10,6 +10,7 @@ Env: GEMINI_API_KEY (gratuit) ou ANTHROPIC_API_KEY, RADAR_MODEL,
 """
 import argparse, datetime as dt, html, json, math, os, re, sys, time, urllib.error, urllib.request
 import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -99,28 +100,91 @@ def hacker_news(limit=20):
             for h in d["hits"]][:limit]
 
 
+def _txt(el, *names):
+    for n in names:
+        for c in el:
+            if c.tag.split("}")[-1] == n and (c.text or c.attrib.get("href")):
+                return (c.text or "").strip() or c.attrib.get("href", "")
+    return ""
+
+
+def _when(s):
+    try:
+        d = parsedate_to_datetime(s)
+    except Exception:
+        try:
+            d = dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except Exception:
+            return None
+    return d if d.tzinfo else d.replace(tzinfo=dt.timezone.utc)
+
+
+def feeds(max_age_h=72, per_feed=4):
+    """Articles récents des flux de feeds.json (modifiable). Les flux en panne sont ignorés."""
+    cfg = json.loads((HERE / "feeds.json").read_text(encoding="utf-8"))
+    now = dt.datetime.now(dt.timezone.utc)
+    out, ok, ko = [], [], []
+    for f in cfg:
+        try:
+            root = ET.fromstring(get(f["url"], timeout=15))
+        except Exception:
+            ko.append(f["name"])
+            continue
+        items = [e for e in root.iter() if e.tag.split("}")[-1] in ("item", "entry")]
+        n = 0
+        for it in items:
+            when = _when(_txt(it, "pubDate", "published", "updated", "date"))
+            if not when or (now - when).total_seconds() > max_age_h * 3600:
+                continue
+            link = ""
+            for c in it:
+                if c.tag.split("}")[-1] == "link":
+                    link = c.attrib.get("href") or (c.text or "").strip()
+                    if link:
+                        break
+            desc = html.unescape(re.sub(r"<[^>]+>", " ", _txt(it, "description", "summary", "encoded", "content")))
+            age = int((now - when).total_seconds() // 3600)
+            out.append({"source": f["name"], "title": html.unescape(_txt(it, "title")), "url": link,
+                        "metric": f"il y a {age} h", "note": " ".join(desc.split())[:220], "age": age})
+            n += 1
+            if n >= per_feed:
+                break
+        ok.append(f["name"])
+    print(f"Flux : {len(ok)} OK, {len(ko)} en échec" + (f" ({', '.join(ko)})" if ko else ""), file=sys.stderr)
+    return sorted(out, key=lambda x: x["age"])
+
+
 def collect():
     signals = []
     for fn, label in [(wikipedia_spikes, "wikipedia"), (google_trends, "google_trends"),
-                      (google_news, "google_news"), (hacker_news, "hacker_news")]:
+                      (google_news, "google_news"), (hacker_news, "hacker_news"), (feeds, "flux")]:
         signals += safe(fn, label)
+    signals = signals[:170]
     for i, s in enumerate(signals):
         s["id"] = i
     return signals
 
 
 # ---------- Synthèse Claude ----------
-SYSTEM = """Tu es l'assistant de veille d'un directeur de création en agence. Il cherche des sujets d'actualité et des tendances \
-sur lesquels les marques peuvent proposer des "rebonds" créatifs (réactifs ou de fond).
-À partir des SIGNAUX fournis (pics Wikipédia, Google Trends, actus, Hacker News), produis 8 à 10 fiches. Mélange :
-rebonds chauds (à saisir sous 24-72h) et tendances de fond (sujets de société/usage/esthétique qui émergent).
-Regroupe les signaux qui parlent du même sujet. Ignore le bruit (sport de routine, people sans angle, pages techniques).
-RÈGLES STRICTES :
-- N'invente AUCUN chiffre ni source. "preuve" ne contient que des chiffres présents dans les signaux (reprends-les tels quels), sinon null.
-- "signal_ids" liste les id des signaux utilisés. "sources" = noms de ces sources.
-- "a_verifier" : ce qu'il faudrait confirmer avant de le présenter (contexte que tu supposes sans le voir dans les signaux).
-- "rebondable" = false si le sujet est un deuil, un drame, une catastrophe, un sujet judiciaire/politique clivant : explique dans "risque". Sinon "risque" = brève précaution de ton.
-- Angles : concrets, avec un message de marque rédigé (pas une généralité). 2 à 3 angles par fiche.
+SYSTEM = """Tu es l'assistant de veille d'un directeur de création en agence : une REVUE DE PRESSE quotidienne de signaux, \
+frictions et contre-mouvements sur lesquels une marque peut rebondir en com. Il veut du récent, de l'actualité, de l'insight \
+et du chiffre, pas des généralités.
+À partir des SIGNAUX fournis (articles des dernières 72h, pics Wikipédia, Google Trends, Reddit, newsletters), produis 10 fiches.
+MIX : environ 4 rebonds liés à l'actualité chaude, 6 signaux/frictions/contre-tendances. Équilibre : digital/tech, conso/retail, \
+société/travail, esthétique/DA, culture web/mèmes, data/étude, écologie, food/lifestyle.
+RÈGLES ÉDITORIALES :
+- Zéro marronnier : écarte ce que la presse grand public a déjà rincé (ex. run clubs, matcha, quiet quitting classique) \
+sauf si le signal du jour est le contrecoup (backlash) ou une évolution nette.
+- Priorité à la friction : agacement, saturation, honte, rejet (tracking, QR codes, contenus IA, frais cachés, abonnements...).
+- Regroupe les signaux qui parlent du même sujet. Ignore le bruit (sport de routine, faits divers sans angle, politique politicienne).
+- Chaque fiche = une observation tirée des signaux + son angle de marque concret avec message rédigé entre guillemets.
+RÈGLES STRICTES ANTI-INVENTION :
+- N'invente AUCUN chiffre, étude, institut ni source. "preuve" ne contient que des chiffres présents dans les signaux (reprends-les tels quels, avec leur source), sinon null.
+- "sources" = noms des sources des signaux utilisés ; "signal_ids" = leurs id. Ne cite jamais une source absente des signaux.
+- "statut" : Émergent / Contre-tendance / Friction d'actualité / Micro-niche / Saturation (une de ces valeurs + courte précision).
+- "a_verifier" : ce que tu supposes sans le voir dans les signaux, et le niveau de confiance si le signal est mince.
+- "rebondable" = false si deuil, drame, catastrophe, sujet judiciaire ou politique clivant : explique dans "risque". Sinon "risque" = brève précaution de ton.
+- Angles : 2 à 3 par fiche, avec "pour_qui" (secteurs) et "message" (accroche, dispositif ou action concrète).
 Réponds UNIQUEMENT en JSON : {"fiches":[{"titre","categorie","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
 
 
@@ -131,7 +195,7 @@ def call_llm(user_msg):
         def ask(model):
             body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
                     "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
-                    "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 12000}}
+                    "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 16000}}
             req = urllib.request.Request(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 json.dumps(body).encode(), {"content-type": "application/json", "x-goog-api-key": gem})
@@ -189,7 +253,7 @@ def synthesize(signals):
     fiches = json.loads(text[text.index("{"): text.rindex("}") + 1])["fiches"]
     by_id = {s["id"]: s for s in signals}
     for f in fiches:  # liens réels reconduits depuis les signaux, jamais générés
-        f["liens"] = [{"label": by_id[i]["title"], "url": by_id[i]["url"]}
+        f["liens"] = [{"label": f"{by_id[i]['title'][:70]} ({by_id[i]['source']}{', ' + by_id[i]['metric'] if by_id[i].get('age') is not None else ''})", "url": by_id[i]["url"]}
                       for i in f.get("signal_ids", []) if i in by_id][:4]
     return fiches
 
