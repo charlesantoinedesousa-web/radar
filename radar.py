@@ -8,7 +8,7 @@ Usage:
 Env: GEMINI_API_KEY (gratuit) ou ANTHROPIC_API_KEY, RADAR_MODEL,
      RADAR_WEBHOOK (Slack/Discord/Teams-compatible, alerte sur les pics), RADAR_CONTACT
 """
-import argparse, datetime as dt, html, json, math, os, re, sys, urllib.request
+import argparse, datetime as dt, html, json, math, os, re, sys, urllib.error, urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -193,7 +193,7 @@ def main():
         fiches = json.loads((HERE / "demo.json").read_text(encoding="utf-8"))
         return render({"mode": "demo", "generated": now, "fiches": fiches, "signals": []})
     signals = collect()
-    print(f"{len(signals)} signaux collectés")
+    print(f"{len(signals)} signaux collectés : " + ", ".join(sorted({x['source'] for x in signals})))
     if not signals:
         sys.exit("Aucun signal : vérifie ta connexion / les accès réseau.")
     notify(signals)
@@ -202,4 +202,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except urllib.error.HTTPError as e:  # erreur API lisible dans les logs
+        sys.exit(f"ERREUR API {e.code} sur {e.url.split('?')[0]} : {e.read().decode(errors='replace')[:600]}")
