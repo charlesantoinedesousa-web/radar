@@ -208,21 +208,26 @@ def call_llm(user_msg):
         def ask(model):
             body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
                     "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
-                    "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 16000}}
+                    "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 12000}}
             req = urllib.request.Request(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 json.dumps(body).encode(), {"content-type": "application/json", "x-goog-api-key": gem})
-            with urllib.request.urlopen(req, timeout=180) as r:
+            with urllib.request.urlopen(req, timeout=300) as r:
                 parts = json.load(r)["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts)
+        def transient(e):  # saturation, coupure ou délai dépassé : on peut réessayer
+            if isinstance(e, urllib.error.HTTPError):
+                return e.code in (429, 500, 502, 503, 504)
+            return isinstance(e, OSError)
+
         def ask_retry(model, waits=(15, 45, 90)):
             for i in range(len(waits) + 1):
                 try:
                     return ask(model)
-                except urllib.error.HTTPError as e:
-                    if e.code not in (429, 500, 502, 503, 504) or i == len(waits):
+                except (urllib.error.URLError, OSError) as e:
+                    if not transient(e) or i == len(waits):
                         raise
-                    print(f"[!] {model} saturé ({e.code}), nouvel essai dans {waits[i]}s", file=sys.stderr)
+                    print(f"[!] {model} : {getattr(e, 'code', type(e).__name__)}, nouvel essai dans {waits[i]}s", file=sys.stderr)
                     time.sleep(waits[i])
 
         def others(exclude):  # autres modèles flash stables, du plus récent au plus ancien
@@ -237,15 +242,15 @@ def call_llm(user_msg):
         model = os.environ.get("RADAR_MODEL", "gemini-3.8-flash")
         try:
             return ask_retry(model)
-        except urllib.error.HTTPError as e:
-            if e.code not in (404, 429, 500, 502, 503, 504):
+        except (urllib.error.URLError, OSError) as e:
+            if not (transient(e) or getattr(e, "code", None) == 404):
                 raise
             err = e
         for alt in others(model)[:3]:
             print(f"[!] modèle {model} indisponible, essai avec {alt}", file=sys.stderr)
             try:
                 return ask_retry(alt, waits=(20,))
-            except urllib.error.HTTPError as e:
+            except (urllib.error.URLError, OSError) as e:
                 err = e
         raise err
     if ant:
@@ -262,8 +267,16 @@ def call_llm(user_msg):
 def synthesize(signals):
     lines = [f"[{s['id']}] ({s['source']}) {s['title']} | {s['metric']} {('| ' + s['note']) if s.get('note') else ''}"
              for s in signals]
-    text = call_llm(f"Date : {dt.date.today():%d/%m/%Y}\nSIGNAUX :\n" + "\n".join(lines))
-    data = json.loads(text[text.index("{"): text.rindex("}") + 1])
+    prompt = f"Date : {dt.date.today():%d/%m/%Y}\nSIGNAUX :\n" + "\n".join(lines)
+    for attempt in (1, 2):
+        text = call_llm(prompt)
+        try:
+            data = json.loads(text[text.index("{"): text.rindex("}") + 1])
+            break
+        except ValueError:
+            if attempt == 2:
+                raise
+            print("[!] réponse du modèle incomplète, nouvel essai", file=sys.stderr)
     fiches, monte = data.get("fiches", []), data.get("ca_monte", [])
     by_id = {s["id"]: s for s in signals}
 
