@@ -8,7 +8,7 @@ Usage:
 Env: GEMINI_API_KEY (gratuit) ou ANTHROPIC_API_KEY, RADAR_MODEL,
      RADAR_WEBHOOK (Slack/Discord/Teams-compatible, alerte sur les pics), RADAR_CONTACT
 """
-import argparse, datetime as dt, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
+import argparse, datetime as dt, threading, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -23,10 +23,23 @@ SKIP_PREFIX = ("Special:", "Wikipedia:", "Portal:", "Category:", "Help:", "File:
 SKIP_TITLES = {"Wikipédia:Accueil_principal", "Accueil", "Main_Page", "-"}
 
 
+_GNEWS = threading.BoundedSemaphore(2)
+
+
 def get(url, headers=None, timeout=20):
     req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+    if "news.google.com" not in url:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read()
+    with _GNEWS:  # Google Actualités refuse (503/429) les rafales de requêtes
+        for i, wait in enumerate((0.6, 4, 10)):
+            time.sleep(wait)
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    return r.read()
+            except urllib.error.HTTPError as e:
+                if e.code not in (429, 503) or i == 2:
+                    raise
 
 
 def safe(fn, label):
@@ -248,11 +261,17 @@ def call_llm(user_msg, system=None):
             req = urllib.request.Request(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 json.dumps(body).encode(), {"content-type": "application/json", "x-goog-api-key": gem})
-            with urllib.request.urlopen(req, timeout=300) as r:
-                parts = json.load(r)["candidates"][0]["content"]["parts"]
+            try:
+                with urllib.request.urlopen(req, timeout=300) as r:
+                    parts = json.load(r)["candidates"][0]["content"]["parts"]
+            except urllib.error.HTTPError as e:
+                e.body = e.read().decode(errors="replace")
+                raise
             return "".join(p.get("text", "") for p in parts)
         def transient(e):  # saturation, coupure ou délai dépassé : on peut réessayer
             if isinstance(e, urllib.error.HTTPError):
+                if e.code == 429 and re.search(r"per ?day", getattr(e, "body", ""), re.I):
+                    return False  # quota du jour épuisé : attendre ne sert à rien
                 return e.code in (429, 500, 502, 503, 504)
             return isinstance(e, OSError)
 
@@ -270,16 +289,17 @@ def call_llm(user_msg, system=None):
             req = urllib.request.Request("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
                                          headers={"x-goog-api-key": gem})
             ms = json.load(urllib.request.urlopen(req, timeout=30))["models"]
-            names = sorted((m["name"].split("/")[-1] for m in ms
-                            if "flash" in m["name"] and "generateContent" in m.get("supportedGenerationMethods", [])
-                            and not re.search(r"image|tts|live|preview|exp|thinking", m["name"])), reverse=True)
-            return [n for n in names if n != exclude]
+            names = [m["name"].split("/")[-1] for m in ms
+                     if "flash" in m["name"] and "generateContent" in m.get("supportedGenerationMethods", [])
+                     and not re.search(r"image|tts|live|preview|exp|thinking|omni|audio|robotics|embed", m["name"])]
+            full = sorted((n for n in names if "lite" not in n), reverse=True)  # les « lite » écrivent moins bien : en dernier
+            return [n for n in full + sorted(n for n in names if "lite" in n) if n != exclude]
 
         model = os.environ.get("RADAR_MODEL", "gemini-3.8-flash")
         try:
             return ask_retry(model)
         except (urllib.error.URLError, OSError) as e:
-            if not (transient(e) or getattr(e, "code", None) == 404):
+            if not (transient(e) or getattr(e, "code", None) in (404, 429)):
                 raise
             err = e
         for alt in others(model)[:3]:
@@ -363,16 +383,16 @@ def _dedoublonne(chiffres):
 
 
 def _lines(signals):
-    return [f"[{s['id']}] ({s['source']}) {s['title']} | {s['metric']} {('| ' + s['note']) if s.get('note') else ''}" for s in signals]
+    return [f"[{s['id']}] ({s['source']}) {s['title'][:140]} | {s['metric']} {('| ' + s['note'][:130]) if s.get('note') else ''}" for s in signals]
 
 
 def _json(prompt, system):
-    for attempt in (1, 2):
+    for attempt in (1, 2, 3):
         text = call_llm(prompt, system)
         try:
             return json.loads(text[text.index("{"): text.rindex("}") + 1])
         except ValueError:
-            if attempt == 2:
+            if attempt == 3:
                 raise
             print("[!] réponse du modèle incomplète, nouvel essai", file=sys.stderr)
 
@@ -486,7 +506,17 @@ def main():
     if prev:
         prev.update({"ca_monte": synthesize_monte(signals), "generated": now, "feeds_ko": FEEDS_KO, "signals": signals})
         return render(prev)
-    fiches, monte, chiffres = ([], [], []) if a.raw else synthesize(signals)
+    try:
+        fiches, monte, chiffres = ([], [], []) if a.raw else synthesize(signals)
+    except Exception as e:
+        print(f"::error::Génération impossible aujourd'hui ({type(e).__name__}: {str(e)[:300]})", file=sys.stderr)
+        p = OUT / "latest.json"
+        old = json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+        if old and old.get("fiches"):
+            old.update({"stale": f"La génération du {now} a échoué (modèle indisponible ou quota atteint) : édition précédente affichée.",
+                        "feeds_ko": FEEDS_KO, "signals": signals})
+            return render(old)
+        fiches, monte, chiffres = [], [], []
     render({"mode": "raw" if a.raw else "live", "generated": now, "fiches": fiches, "ca_monte": monte, "chiffres": chiffres,
             "feeds_ko": FEEDS_KO, "signals": signals})
 

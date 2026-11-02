@@ -47,6 +47,7 @@ const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"]/g,c=>(
 const U={chaud:"Chaud 24-72h",montant:"Émergent",fond:"Tendance de fond"};
 let urg="all",cat="all",q="";
 $("#meta").textContent="Mis à jour le "+D.generated+" · "+D.fiches.length+" fiches · "+D.signals.length+" signaux";
+if(D.stale)$("#banner").innerHTML='<div class="banner">'+esc(D.stale)+'</div>';
 if(D.mode==="demo")$("#banner").innerHTML='<div class="banner">Mode démo : fiches d\'exemple, chiffres et sources non vérifiés. Lance <code>python radar.py</code> pour des données réelles.</div>';
 function bar(){
  const cats=[...new Set(D.fiches.map(f=>f.categorie))];
