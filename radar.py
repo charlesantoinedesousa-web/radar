@@ -8,7 +8,7 @@ Usage:
 Env: GEMINI_API_KEY (gratuit) ou ANTHROPIC_API_KEY, RADAR_MODEL,
      RADAR_WEBHOOK (Slack/Discord/Teams-compatible, alerte sur les pics), RADAR_CONTACT
 """
-import argparse, datetime as dt, html, json, math, os, re, sys, time, urllib.error, urllib.request
+import argparse, datetime as dt, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -16,7 +16,8 @@ from pathlib import Path
 HERE = Path(__file__).parent
 OUT = HERE / "output"
 UA = f"radar/0.1 ({os.environ.get('RADAR_CONTACT', 'contact-non-renseigne')})"
-SKIP_PREFIX = ("Spécial:", "Wikipédia:", "Portail:", "Catégorie:", "Aide:", "Fichier:",
+SKIP_PREFIX = ("Special:", "Wikipedia:", "Portal:", "Category:", "Help:", "File:", "Template:", "Talk:", "User:", "Deaths_in", "List_of",
+               "Spécial:", "Wikipédia:", "Portail:", "Catégorie:", "Aide:", "Fichier:",
                "Projet:", "Modèle:", "Discussion", "Utilisateur")
 SKIP_TITLES = {"Wikipédia:Accueil_principal", "Accueil", "Main_Page", "-"}
 
@@ -79,7 +80,7 @@ def google_trends(geo="FR", limit=20):
         headline = ""
         if news:
             headline = next((c.text for c in news[0] if c.tag.endswith("news_item_title")), "") or ""
-        out.append({"source": "Google Trends FR", "title": f.get("title", ""),
+        out.append({"source": f"Google Trends {geo}", "title": f.get("title", ""),
                     "url": f"https://trends.google.com/trending?geo={geo}",
                     "metric": f"{f.get('approx_traffic', '?')} recherches",
                     "note": html.unescape(headline)})
@@ -131,9 +132,17 @@ def feeds(max_age_h=72, per_feed=4):
         try:
             root = ET.fromstring(get(f["url"], timeout=15))
         except Exception:
-            ko.append(f["name"])
-            FEEDS_KO.append(f["name"])
-            continue
+            root = None
+            if f.get("site"):  # flux bloqué : on passe par l'index Google Actualités du site
+                q = urllib.parse.quote_plus(f"site:{f['site']} when:14d")
+                try:
+                    root = ET.fromstring(get(f"https://news.google.com/rss/search?q={q}&hl=fr&gl=FR&ceid=FR:fr", timeout=15))
+                except Exception:
+                    root = None
+            if root is None:
+                ko.append(f["name"])
+                FEEDS_KO.append(f["name"])
+                continue
         items = [e for e in root.iter() if e.tag.split("}")[-1] in ("item", "entry")]
         n = 0
         for it in items:
@@ -151,7 +160,7 @@ def feeds(max_age_h=72, per_feed=4):
             out.append({"source": f["name"], "title": html.unescape(_txt(it, "title")), "url": link,
                         "metric": f"il y a {age} h", "note": " ".join(desc.split())[:220], "age": age})
             n += 1
-            if n >= per_feed:
+            if n >= f.get("n", per_feed):
                 break
         ok.append(f["name"])
     print(f"Flux : {len(ok)} OK, {len(ko)} en échec" + (f" ({', '.join(ko)})" if ko else ""), file=sys.stderr)
@@ -161,9 +170,12 @@ def feeds(max_age_h=72, per_feed=4):
 def collect():
     signals = []
     for fn, label in [(wikipedia_spikes, "wikipedia"), (google_trends, "google_trends"),
+                      (lambda: wikipedia_spikes("en", min_views=40000, limit=10), "wikipedia_en"),
+                      (lambda: google_trends("US", 8), "trends_us"), (lambda: google_trends("GB", 8), "trends_gb"),
+                      (lambda: google_trends("JP", 6), "trends_jp"),
                       (google_news, "google_news"), (hacker_news, "hacker_news"), (feeds, "flux")]:
         signals += safe(fn, label)
-    signals = signals[:170]
+    signals = signals[:260]
     for i, s in enumerate(signals):
         s["id"] = i
     return signals
@@ -189,6 +201,10 @@ RÈGLES STRICTES ANTI-INVENTION :
 - "a_verifier" : ce que tu supposes sans le voir dans les signaux, et le niveau de confiance si le signal est mince.
 - "rebondable" = false si deuil, drame, catastrophe, sujet judiciaire ou politique clivant : explique dans "risque". Sinon "risque" = brève précaution de ton.
 - Angles : 2 à 3 par fiche, avec "pour_qui" (secteurs) et "message" (accroche, dispositif ou action concrète).
+SOURCES : privilégie les sujets confirmés par au moins 2 signaux de sources différentes (sinon dis-le dans "a_verifier"). Au moins 4 fiches doivent \
+venir de la culture, de la tech underground ou des communautés (Dazed, Dezeen, Hackaday, Know Your Meme, Mastodon, Lemmy, newsletters, Hacker News) \
+et non des seules actualités généralistes. Quand un signal de type « GActu · sondages / études / baromètres » cite un chiffre, un institut ou une enquête, \
+utilise-le comme "preuve" en nommant l'institut tel qu'il apparaît dans le titre (jamais d'autre).
 PRIORITÉ FRANCE : une marque française doit pouvoir s'en servir. Au moins 6 fiches sur 10 s'appuient sur un signal français ou européen ; \
 pour un signal venu de l'étranger, dis dans "a_verifier" s'il est déjà visible en France.
 URGENCE : uniquement "chaud", "montant" ou "fond" (aucune autre valeur).
@@ -264,10 +280,27 @@ def call_llm(user_msg):
     sys.exit("Aucune clé (GEMINI_API_KEY gratuite, ou ANTHROPIC_API_KEY). Sinon lance avec --raw / --demo.")
 
 
+def recent_topics(days=3):
+    """Titres des derniers jours (output/history) pour éviter de répéter les mêmes sujets."""
+    out = []
+    for p in sorted((OUT / "history").glob("*.json"))[-(days + 1):]:
+        if p.stem == f"{dt.date.today():%Y-%m-%d}":
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+            out += [f["titre"] for f in d.get("fiches", [])] + [m["sujet"] for m in d.get("ca_monte", [])]
+        except Exception:
+            pass
+    return out
+
+
 def synthesize(signals):
     lines = [f"[{s['id']}] ({s['source']}) {s['title']} | {s['metric']} {('| ' + s['note']) if s.get('note') else ''}"
              for s in signals]
-    prompt = f"Date : {dt.date.today():%d/%m/%Y}\nSIGNAUX :\n" + "\n".join(lines)
+    seen = recent_topics()
+    prompt = (f"Date : {dt.date.today():%d/%m/%Y}\n"
+              + (("SUJETS DÉJÀ TRAITÉS CES DERNIERS JOURS (ne les répète pas, sauf évolution notable) : " + " ; ".join(seen) + "\n") if seen else "")
+              + "SIGNAUX :\n" + "\n".join(lines))
     for attempt in (1, 2):
         text = call_llm(prompt)
         try:

@@ -1,37 +1,284 @@
 [
- {"name": "Franceinfo", "url": "https://www.francetvinfo.fr/titres.rss"},
- {"name": "Numerama", "url": "https://www.numerama.com/feed/"},
- {"name": "Usbek & Rica", "url": "https://usbeketrica.com/fr/rss"},
- {"name": "Reporterre", "url": "https://reporterre.net/spip.php?page=backend"},
- {"name": "The Conversation FR", "url": "https://theconversation.com/fr/articles.atom"},
- {"name": "Basta!", "url": "https://basta.media/spip.php?page=backend"},
- {"name": "StreetPress", "url": "https://www.streetpress.com/rss"},
- {"name": "20 Minutes", "url": "https://www.20minutes.fr/feeds/rss-une.xml"},
- {"name": "Le HuffPost", "url": "https://www.huffingtonpost.fr/feeds/index.xml"},
- {"name": "L'ADN", "url": "https://www.ladn.eu/feed/"},
- {"name": "La Réclame", "url": "https://lareclame.fr/feed"},
- {"name": "The Guardian (Culture)", "url": "https://www.theguardian.com/culture/rss"},
- {"name": "The Guardian (Technology)", "url": "https://www.theguardian.com/technology/rss"},
- {"name": "BBC News", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
- {"name": "Dazed", "url": "https://www.dazeddigital.com/rss"},
- {"name": "It's Nice That", "url": "https://www.itsnicethat.com/rss/all"},
- {"name": "Dezeen", "url": "https://www.dezeen.com/feed/"},
- {"name": "Dieline", "url": "https://thedieline.com/feed/"},
- {"name": "Know Your Meme", "url": "https://knowyourmeme.com/newsfeed.rss"},
- {"name": "Hackaday", "url": "https://hackaday.com/feed/"},
- {"name": "MIT Technology Review", "url": "https://www.technologyreview.com/feed/"},
- {"name": "IEEE Spectrum", "url": "https://spectrum.ieee.org/feeds/feed.rss"},
- {"name": "Low-Tech Magazine", "url": "https://solar.lowtechmagazine.com/posts/index.xml"},
- {"name": "Garbage Day", "url": "https://www.garbageday.email/feed"},
- {"name": "After School", "url": "https://afterschool.substack.com/feed"},
- {"name": "Culture Study", "url": "https://annehelen.substack.com/feed"},
- {"name": "Embedded", "url": "https://embedded.substack.com/feed"},
- {"name": "Link in Bio", "url": "https://linkinbio.substack.com/feed"},
- {"name": "Pew Research Center", "url": "https://www.pewresearch.org/feed/"},
- {"name": "CNIL", "url": "https://www.cnil.fr/fr/rss.xml"},
- {"name": "Reddit r/france", "url": "https://www.reddit.com/r/france/top/.rss?t=day"},
- {"name": "Reddit r/AskFrance", "url": "https://www.reddit.com/r/AskFrance/top/.rss?t=day"},
- {"name": "Reddit r/mildlyinfuriating", "url": "https://www.reddit.com/r/mildlyinfuriating/top/.rss?t=day"},
- {"name": "Reddit r/Anticonsumption", "url": "https://www.reddit.com/r/Anticonsumption/top/.rss?t=day"},
- {"name": "Reddit r/DataHoarder", "url": "https://www.reddit.com/r/DataHoarder/top/.rss?t=day"}
+ {
+  "name": "Franceinfo",
+  "url": "https://www.francetvinfo.fr/titres.rss"
+ },
+ {
+  "name": "Numerama",
+  "url": "https://www.numerama.com/feed/"
+ },
+ {
+  "name": "Usbek & Rica",
+  "url": "https://usbeketrica.com/fr/rss",
+  "max_age_h": 168
+ },
+ {
+  "name": "Reporterre",
+  "url": "https://reporterre.net/spip.php?page=backend"
+ },
+ {
+  "name": "The Conversation FR",
+  "url": "https://theconversation.com/fr/articles.atom"
+ },
+ {
+  "name": "Basta!",
+  "url": "https://basta.media/spip.php?page=backend",
+  "max_age_h": 168
+ },
+ {
+  "name": "StreetPress",
+  "url": "https://www.streetpress.com/rss",
+  "max_age_h": 168,
+  "site": "streetpress.com"
+ },
+ {
+  "name": "20 Minutes",
+  "url": "https://www.20minutes.fr/feeds/rss-une.xml"
+ },
+ {
+  "name": "Le HuffPost",
+  "url": "https://www.huffingtonpost.fr/feeds/index.xml"
+ },
+ {
+  "name": "L'ADN",
+  "url": "https://www.ladn.eu/feed/"
+ },
+ {
+  "name": "La Réclame",
+  "url": "https://lareclame.fr/feed",
+  "site": "lareclame.fr"
+ },
+ {
+  "name": "The Guardian (Culture)",
+  "url": "https://www.theguardian.com/culture/rss"
+ },
+ {
+  "name": "The Guardian (Technology)",
+  "url": "https://www.theguardian.com/technology/rss"
+ },
+ {
+  "name": "BBC News",
+  "url": "http://feeds.bbci.co.uk/news/world/rss.xml"
+ },
+ {
+  "name": "Dazed",
+  "url": "https://www.dazeddigital.com/rss"
+ },
+ {
+  "name": "It's Nice That",
+  "url": "https://www.itsnicethat.com/rss/all",
+  "site": "itsnicethat.com"
+ },
+ {
+  "name": "Dezeen",
+  "url": "https://www.dezeen.com/feed/"
+ },
+ {
+  "name": "Dieline",
+  "url": "https://thedieline.com/feed/",
+  "max_age_h": 168
+ },
+ {
+  "name": "Know Your Meme",
+  "url": "https://knowyourmeme.com/newsfeed.rss"
+ },
+ {
+  "name": "Hackaday",
+  "url": "https://hackaday.com/feed/"
+ },
+ {
+  "name": "MIT Technology Review",
+  "url": "https://www.technologyreview.com/feed/",
+  "max_age_h": 120
+ },
+ {
+  "name": "IEEE Spectrum",
+  "url": "https://spectrum.ieee.org/feeds/feed.rss"
+ },
+ {
+  "name": "Low-Tech Magazine",
+  "url": "https://solar.lowtechmagazine.com/posts/index.xml",
+  "max_age_h": 720
+ },
+ {
+  "name": "Garbage Day",
+  "url": "https://www.garbageday.email/feed",
+  "max_age_h": 168,
+  "site": "garbageday.email"
+ },
+ {
+  "name": "After School",
+  "url": "https://afterschool.substack.com/feed",
+  "max_age_h": 240,
+  "site": "afterschool.substack.com"
+ },
+ {
+  "name": "Culture Study",
+  "url": "https://annehelen.substack.com/feed",
+  "max_age_h": 240,
+  "site": "annehelen.substack.com"
+ },
+ {
+  "name": "Embedded",
+  "url": "https://embedded.substack.com/feed",
+  "max_age_h": 240,
+  "site": "embedded.substack.com"
+ },
+ {
+  "name": "Link in Bio",
+  "url": "https://linkinbio.substack.com/feed",
+  "max_age_h": 240,
+  "site": "linkinbio.substack.com"
+ },
+ {
+  "name": "Pew Research Center",
+  "url": "https://www.pewresearch.org/feed/",
+  "max_age_h": 240
+ },
+ {
+  "name": "CNIL",
+  "url": "https://www.cnil.fr/fr/rss.xml",
+  "max_age_h": 240
+ },
+ {
+  "name": "Reddit r/france",
+  "url": "https://www.reddit.com/r/france/top/.rss?t=day"
+ },
+ {
+  "name": "GActu · ras-le-bol",
+  "url": "https://news.google.com/rss/search?q=ras-le-bol+OR+exasp%C3%A9ration+OR+%22on+n%27en+peut+plus%22+consommateurs+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · bad buzz marques",
+  "url": "https://news.google.com/rss/search?q=boycott+OR+pol%C3%A9mique+OR+bad+buzz+marque+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · polémiques pub",
+  "url": "https://news.google.com/rss/search?q=backlash+OR+critiques+campagne+publicitaire+OR+publicit%C3%A9+pol%C3%A9mique+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · sondages",
+  "url": "https://news.google.com/rss/search?q=sondage+Ifop+OR+Elabe+OR+OpinionWay+OR+Harris+OR+Odoxa+OR+Toluna+Fran%C3%A7ais+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · études conso",
+  "url": "https://news.google.com/rss/search?q=barom%C3%A8tre+OR+%C3%A9tude+ADEME+OR+Kantar+OR+Greenflex+OR+Credoc+consommateurs+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · jeunes",
+  "url": "https://news.google.com/rss/search?q=%C3%A9tude+jeunes+18-25+ans+OR+%22Gen+Z%22+OR+%22g%C3%A9n%C3%A9ration+Z%22+comportement+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · viral",
+  "url": "https://news.google.com/rss/search?q=viral+TikTok+OR+m%C3%A8me+OR+tendance+r%C3%A9seaux+sociaux+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · IA backlash",
+  "url": "https://news.google.com/rss/search?q=intelligence+artificielle+rejet+OR+fatigue+OR+backlash+OR+%22contenu+IA%22+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · tendances lifestyle",
+  "url": "https://news.google.com/rss/search?q=nouvelle+tendance+mode+OR+design+OR+food+OR+d%C3%A9co+when%3A3d&hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · brand backlash (EN)",
+  "url": "https://news.google.com/rss/search?q=brand+backlash+OR+%22viral+ad%22+OR+%22ad+campaign%22+criticism+when%3A3d&hl=en-US&gl=US&ceid=US:en",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · culture web (EN)",
+  "url": "https://news.google.com/rss/search?q=%22Gen+Z%22+trend+OR+%22internet+culture%22+OR+meme+when%3A3d&hl=en-US&gl=US&ceid=US:en",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · enquêtes (EN)",
+  "url": "https://news.google.com/rss/search?q=consumer+survey+OR+poll+shows+people+are+tired+of+when%3A3d&hl=en-US&gl=US&ceid=US:en",
+  "n": 5,
+  "max_age_h": 72
+ },
+ {
+  "name": "GActu · rubrique Culture",
+  "url": "https://news.google.com/rss/headlines/section/topic/ENTERTAINMENT?hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5
+ },
+ {
+  "name": "GActu · rubrique Tech",
+  "url": "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5
+ },
+ {
+  "name": "GActu · rubrique Science",
+  "url": "https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5
+ },
+ {
+  "name": "GActu · rubrique Santé",
+  "url": "https://news.google.com/rss/headlines/section/topic/HEALTH?hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5
+ },
+ {
+  "name": "GActu · rubrique Économie",
+  "url": "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=fr&gl=FR&ceid=FR:fr",
+  "n": 5
+ },
+ {
+  "name": "Mastodon #enshittification",
+  "url": "https://mastodon.social/tags/enshittification.rss",
+  "n": 4,
+  "max_age_h": 96
+ },
+ {
+  "name": "Mastodon #aislop",
+  "url": "https://mastodon.social/tags/aislop.rss",
+  "n": 4,
+  "max_age_h": 96
+ },
+ {
+  "name": "Mastodon #solarpunk",
+  "url": "https://mastodon.social/tags/solarpunk.rss",
+  "n": 4,
+  "max_age_h": 96
+ },
+ {
+  "name": "Mastodon #degooglisons",
+  "url": "https://mastodon.social/tags/degooglisons.rss",
+  "n": 4,
+  "max_age_h": 96
+ },
+ {
+  "name": "Mastodon #brainrot",
+  "url": "https://mastodon.social/tags/brainrot.rss",
+  "n": 4,
+  "max_age_h": 96
+ },
+ {
+  "name": "Lemmy jlai.lu (FR)",
+  "url": "https://jlai.lu/feeds/local.xml?sort=Hot",
+  "n": 6
+ },
+ {
+  "name": "Lemmy.world (Hot)",
+  "url": "https://lemmy.world/feeds/all.xml?sort=Hot",
+  "n": 6
+ }
 ]
