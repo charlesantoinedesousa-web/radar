@@ -128,16 +128,33 @@ def call_llm(user_msg):
     """Gemini (gratuit) si GEMINI_API_KEY, sinon Claude si ANTHROPIC_API_KEY."""
     gem, ant = os.environ.get("GEMINI_API_KEY"), os.environ.get("ANTHROPIC_API_KEY")
     if gem:
-        model = os.environ.get("RADAR_MODEL", "gemini-2.5-flash")
-        body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
-                "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
-                "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 12000}}
-        req = urllib.request.Request(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-            json.dumps(body).encode(), {"content-type": "application/json", "x-goog-api-key": gem})
-        with urllib.request.urlopen(req, timeout=180) as r:
-            parts = json.load(r)["candidates"][0]["content"]["parts"]
-        return "".join(p.get("text", "") for p in parts)
+        def ask(model):
+            body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
+                    "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
+                    "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 12000}}
+            req = urllib.request.Request(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                json.dumps(body).encode(), {"content-type": "application/json", "x-goog-api-key": gem})
+            with urllib.request.urlopen(req, timeout=180) as r:
+                parts = json.load(r)["candidates"][0]["content"]["parts"]
+            return "".join(p.get("text", "") for p in parts)
+        model = os.environ.get("RADAR_MODEL", "gemini-3.8-flash")
+        try:
+            return ask(model)
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
+            # modèle retiré : on prend le "flash" le plus récent proposé par l'API
+            req = urllib.request.Request("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
+                                         headers={"x-goog-api-key": gem})
+            models = json.load(urllib.request.urlopen(req, timeout=30))["models"]
+            flash = sorted(m["name"].split("/")[-1] for m in models
+                           if "flash" in m["name"] and "generateContent" in m.get("supportedGenerationMethods", [])
+                           and not re.search(r"lite|image|tts|live|preview|exp|thinking", m["name"]))
+            if not flash:
+                raise
+            print(f"[!] modèle {model} indisponible, bascule sur {flash[-1]}", file=sys.stderr)
+            return ask(flash[-1])
     if ant:
         body = {"model": os.environ.get("RADAR_MODEL", "claude-sonnet-5-5"), "max_tokens": 8000,
                 "system": SYSTEM, "messages": [{"role": "user", "content": user_msg}]}
