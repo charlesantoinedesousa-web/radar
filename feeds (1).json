@@ -1,0 +1,155 @@
+[
+ {
+  "name": "Franceinfo",
+  "url": "https://www.francetvinfo.fr/titres.rss"
+ },
+ {
+  "name": "Numerama",
+  "url": "https://www.numerama.com/feed/"
+ },
+ {
+  "name": "Usbek & Rica",
+  "url": "https://usbeketrica.com/fr/rss",
+  "max_age_h": 168
+ },
+ {
+  "name": "Reporterre",
+  "url": "https://reporterre.net/spip.php?page=backend"
+ },
+ {
+  "name": "The Conversation FR",
+  "url": "https://theconversation.com/fr/articles.atom"
+ },
+ {
+  "name": "Basta!",
+  "url": "https://basta.media/spip.php?page=backend",
+  "max_age_h": 168
+ },
+ {
+  "name": "StreetPress",
+  "url": "https://www.streetpress.com/rss",
+  "max_age_h": 168
+ },
+ {
+  "name": "20 Minutes",
+  "url": "https://www.20minutes.fr/feeds/rss-une.xml"
+ },
+ {
+  "name": "Le HuffPost",
+  "url": "https://www.huffingtonpost.fr/feeds/index.xml"
+ },
+ {
+  "name": "L'ADN",
+  "url": "https://www.ladn.eu/feed/"
+ },
+ {
+  "name": "La Réclame",
+  "url": "https://lareclame.fr/feed"
+ },
+ {
+  "name": "The Guardian (Culture)",
+  "url": "https://www.theguardian.com/culture/rss"
+ },
+ {
+  "name": "The Guardian (Technology)",
+  "url": "https://www.theguardian.com/technology/rss"
+ },
+ {
+  "name": "BBC News",
+  "url": "http://feeds.bbci.co.uk/news/world/rss.xml"
+ },
+ {
+  "name": "Dazed",
+  "url": "https://www.dazeddigital.com/rss"
+ },
+ {
+  "name": "It's Nice That",
+  "url": "https://www.itsnicethat.com/rss/all"
+ },
+ {
+  "name": "Dezeen",
+  "url": "https://www.dezeen.com/feed/"
+ },
+ {
+  "name": "Dieline",
+  "url": "https://thedieline.com/feed/",
+  "max_age_h": 168
+ },
+ {
+  "name": "Know Your Meme",
+  "url": "https://knowyourmeme.com/newsfeed.rss"
+ },
+ {
+  "name": "Hackaday",
+  "url": "https://hackaday.com/feed/"
+ },
+ {
+  "name": "MIT Technology Review",
+  "url": "https://www.technologyreview.com/feed/",
+  "max_age_h": 120
+ },
+ {
+  "name": "IEEE Spectrum",
+  "url": "https://spectrum.ieee.org/feeds/feed.rss"
+ },
+ {
+  "name": "Low-Tech Magazine",
+  "url": "https://solar.lowtechmagazine.com/posts/index.xml",
+  "max_age_h": 720
+ },
+ {
+  "name": "Garbage Day",
+  "url": "https://www.garbageday.email/feed",
+  "max_age_h": 168
+ },
+ {
+  "name": "After School",
+  "url": "https://afterschool.substack.com/feed",
+  "max_age_h": 240
+ },
+ {
+  "name": "Culture Study",
+  "url": "https://annehelen.substack.com/feed",
+  "max_age_h": 240
+ },
+ {
+  "name": "Embedded",
+  "url": "https://embedded.substack.com/feed",
+  "max_age_h": 240
+ },
+ {
+  "name": "Link in Bio",
+  "url": "https://linkinbio.substack.com/feed",
+  "max_age_h": 240
+ },
+ {
+  "name": "Pew Research Center",
+  "url": "https://www.pewresearch.org/feed/",
+  "max_age_h": 240
+ },
+ {
+  "name": "CNIL",
+  "url": "https://www.cnil.fr/fr/rss.xml",
+  "max_age_h": 240
+ },
+ {
+  "name": "Reddit r/france",
+  "url": "https://www.reddit.com/r/france/top/.rss?t=day"
+ },
+ {
+  "name": "Reddit r/AskFrance",
+  "url": "https://www.reddit.com/r/AskFrance/top/.rss?t=day"
+ },
+ {
+  "name": "Reddit r/mildlyinfuriating",
+  "url": "https://www.reddit.com/r/mildlyinfuriating/top/.rss?t=day"
+ },
+ {
+  "name": "Reddit r/Anticonsumption",
+  "url": "https://www.reddit.com/r/Anticonsumption/top/.rss?t=day"
+ },
+ {
+  "name": "Reddit r/DataHoarder",
+  "url": "https://www.reddit.com/r/DataHoarder/top/.rss?t=day"
+ }
+]

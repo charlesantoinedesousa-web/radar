@@ -119,6 +119,9 @@ def _when(s):
     return d if d.tzinfo else d.replace(tzinfo=dt.timezone.utc)
 
 
+FEEDS_KO = []
+
+
 def feeds(max_age_h=72, per_feed=4):
     """Articles récents des flux de feeds.json (modifiable). Les flux en panne sont ignorés."""
     cfg = json.loads((HERE / "feeds.json").read_text(encoding="utf-8"))
@@ -129,12 +132,13 @@ def feeds(max_age_h=72, per_feed=4):
             root = ET.fromstring(get(f["url"], timeout=15))
         except Exception:
             ko.append(f["name"])
+            FEEDS_KO.append(f["name"])
             continue
         items = [e for e in root.iter() if e.tag.split("}")[-1] in ("item", "entry")]
         n = 0
         for it in items:
             when = _when(_txt(it, "pubDate", "published", "updated", "date"))
-            if not when or (now - when).total_seconds() > max_age_h * 3600:
+            if not when or (now - when).total_seconds() > f.get("max_age_h", max_age_h) * 3600:
                 continue
             link = ""
             for c in it:
@@ -185,7 +189,16 @@ RÈGLES STRICTES ANTI-INVENTION :
 - "a_verifier" : ce que tu supposes sans le voir dans les signaux, et le niveau de confiance si le signal est mince.
 - "rebondable" = false si deuil, drame, catastrophe, sujet judiciaire ou politique clivant : explique dans "risque". Sinon "risque" = brève précaution de ton.
 - Angles : 2 à 3 par fiche, avec "pour_qui" (secteurs) et "message" (accroche, dispositif ou action concrète).
-Réponds UNIQUEMENT en JSON : {"fiches":[{"titre","categorie","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
+PRIORITÉ FRANCE : une marque française doit pouvoir s'en servir. Au moins 6 fiches sur 10 s'appuient sur un signal français ou européen ; \
+pour un signal venu de l'étranger, dis dans "a_verifier" s'il est déjà visible en France.
+URGENCE : uniquement "chaud", "montant" ou "fond" (aucune autre valeur).
+FICHES JAMAIS VIDES : n'écris une fiche que si le sujet est rebondable. Un sujet sensible (deuil, drame, hack, crise, polémique) ne fait PAS \
+partie des 10 fiches : mets-le dans "ca_monte".
+"ca_monte" = 6 à 8 sujets qui MONTENT aujourd'hui, repérés surtout via les pics Wikipédia, Google Trends et Google Actualités \
+(événements, personnalités, sorties, polémiques, météo, sport, culture). Pour chacun : "pourquoi" (la cause, uniquement si un signal l'établit, \
+sinon écris exactement "cause non identifiée dans les signaux"), "mesure" (chiffre repris d'un signal, ex. "x10 vs moyenne"), "rebondable" (booléen), \
+"precaution" (ton à tenir ou raison de s'abstenir) et "idee" (une piste de rebond d'une phrase, null si non rebondable).
+Réponds UNIQUEMENT en JSON : {"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"titre","categorie","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
 
 
 def call_llm(user_msg):
@@ -250,12 +263,28 @@ def synthesize(signals):
     lines = [f"[{s['id']}] ({s['source']}) {s['title']} | {s['metric']} {('| ' + s['note']) if s.get('note') else ''}"
              for s in signals]
     text = call_llm(f"Date : {dt.date.today():%d/%m/%Y}\nSIGNAUX :\n" + "\n".join(lines))
-    fiches = json.loads(text[text.index("{"): text.rindex("}") + 1])["fiches"]
+    data = json.loads(text[text.index("{"): text.rindex("}") + 1])
+    fiches, monte = data.get("fiches", []), data.get("ca_monte", [])
     by_id = {s["id"]: s for s in signals}
-    for f in fiches:  # liens réels reconduits depuis les signaux, jamais générés
-        f["liens"] = [{"label": f"{by_id[i]['title'][:70]} ({by_id[i]['source']}{', ' + by_id[i]['metric'] if by_id[i].get('age') is not None else ''})", "url": by_id[i]["url"]}
-                      for i in f.get("signal_ids", []) if i in by_id][:4]
-    return fiches
+
+    def liens(ids):  # liens réels reconduits depuis les signaux, jamais générés
+        return [{"label": f"{by_id[i]['title'][:70]} ({by_id[i]['source']}{', ' + by_id[i]['metric'] if by_id[i].get('age') is not None else ''})",
+                 "url": by_id[i]["url"]} for i in ids if i in by_id][:4]
+
+    keep = []
+    for f in fiches:
+        if f.get("urgence") not in ("chaud", "montant", "fond"):
+            f["urgence"] = "montant"
+        f["liens"] = liens(f.get("signal_ids", []))
+        if f.get("angles"):
+            keep.append(f)
+        else:  # fiche sans angle : bascule dans « Ça monte »
+            monte.append({"sujet": f.get("titre", ""), "pourquoi": f.get("signal", ""), "mesure": f.get("preuve") or "",
+                          "rebondable": False, "precaution": f.get("risque", ""), "idee": None,
+                          "signal_ids": f.get("signal_ids", [])})
+    for m in monte:
+        m["liens"] = liens(m.get("signal_ids", []))
+    return keep, monte
 
 
 # ---------- Sortie ----------
@@ -288,14 +317,15 @@ def main():
     now = dt.datetime.now().strftime("%d/%m/%Y %H:%M")
     if a.demo:
         fiches = json.loads((HERE / "demo.json").read_text(encoding="utf-8"))
-        return render({"mode": "demo", "generated": now, "fiches": fiches, "signals": []})
+        return render({"mode": "demo", "generated": now, "fiches": fiches, "ca_monte": [], "feeds_ko": [], "signals": []})
     signals = collect()
     print(f"{len(signals)} signaux collectés : " + ", ".join(sorted({x['source'] for x in signals})))
     if not signals:
         sys.exit("Aucun signal : vérifie ta connexion / les accès réseau.")
     notify(signals)
-    fiches = [] if a.raw else synthesize(signals)
-    render({"mode": "raw" if a.raw else "live", "generated": now, "fiches": fiches, "signals": signals})
+    fiches, monte = ([], []) if a.raw else synthesize(signals)
+    render({"mode": "raw" if a.raw else "live", "generated": now, "fiches": fiches, "ca_monte": monte,
+            "feeds_ko": FEEDS_KO, "signals": signals})
 
 
 if __name__ == "__main__":
