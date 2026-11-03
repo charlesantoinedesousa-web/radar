@@ -249,75 +249,117 @@ promesses vagues (« infiniment plus de goût »), jeux de mots creux. Le messag
 Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"titre","categorie","insight","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
 
 
-def call_llm(user_msg, system=None):
-    """Gemini (gratuit) si GEMINI_API_KEY, sinon Claude si ANTHROPIC_API_KEY."""
-    system = system or SYSTEM
-    gem, ant = os.environ.get("GEMINI_API_KEY"), os.environ.get("ANTHROPIC_API_KEY")
-    if gem:
-        def ask(model):
-            body = {"systemInstruction": {"parts": [{"text": system}]},
-                    "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
-                    "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 12000}}
-            req = urllib.request.Request(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-                json.dumps(body).encode(), {"content-type": "application/json", "x-goog-api-key": gem})
-            try:
-                with urllib.request.urlopen(req, timeout=300) as r:
-                    parts = json.load(r)["candidates"][0]["content"]["parts"]
-            except urllib.error.HTTPError as e:
-                e.body = e.read().decode(errors="replace")
-                raise
-            return "".join(p.get("text", "") for p in parts)
-        def transient(e):  # saturation, coupure ou délai dépassé : on peut réessayer
-            if isinstance(e, urllib.error.HTTPError):
-                if e.code == 429 and re.search(r"per ?day", getattr(e, "body", ""), re.I):
-                    return False  # quota du jour épuisé : attendre ne sert à rien
-                return e.code in (429, 500, 502, 503, 504)
-            return isinstance(e, OSError)
-
-        def ask_retry(model, waits=(20, 60, 120, 180)):
-            for i in range(len(waits) + 1):
-                try:
-                    return ask(model)
-                except (urllib.error.URLError, OSError) as e:
-                    if not transient(e) or i == len(waits):
-                        raise
-                    print(f"[!] {model} : {getattr(e, 'code', type(e).__name__)}, nouvel essai dans {waits[i]}s", file=sys.stderr)
-                    time.sleep(waits[i])
-
-        def others(exclude):  # autres modèles flash stables, du plus récent au plus ancien
-            req = urllib.request.Request("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
-                                         headers={"x-goog-api-key": gem})
-            ms = json.load(urllib.request.urlopen(req, timeout=30))["models"]
-            names = [m["name"].split("/")[-1] for m in ms
-                     if "flash" in m["name"] and "generateContent" in m.get("supportedGenerationMethods", [])
-                     and not re.search(r"image|tts|live|preview|exp|thinking|omni|audio|robotics|embed", m["name"])]
-            full = sorted((n for n in names if "lite" not in n), reverse=True)  # les « lite » écrivent moins bien : en dernier
-            return [n for n in full + sorted(n for n in names if "lite" in n) if n != exclude]
-
-        model = os.environ.get("RADAR_MODEL", "gemini-3.8-flash")
+def _gemini(user_msg, system, gem, PATIENCE, ALTS):
+    def ask(model):
+        body = {"systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
+                "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 12000}}
+        req = urllib.request.Request(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            json.dumps(body).encode(), {"content-type": "application/json", "x-goog-api-key": gem})
         try:
-            return ask_retry(model)
-        except (urllib.error.URLError, OSError) as e:
-            if not (transient(e) or getattr(e, "code", None) in (404, 429)):
-                raise
-            err = e
-        for alt in others(model)[:3]:
-            print(f"[!] modèle {model} indisponible, essai avec {alt}", file=sys.stderr)
+            with urllib.request.urlopen(req, timeout=300) as r:
+                parts = json.load(r)["candidates"][0]["content"]["parts"]
+        except urllib.error.HTTPError as e:
+            e.body = e.read().decode(errors="replace")
+            raise
+        return "".join(p.get("text", "") for p in parts)
+    def transient(e):  # saturation, coupure ou délai dépassé : on peut réessayer
+        if isinstance(e, urllib.error.HTTPError):
+            if e.code == 429 and re.search(r"per ?day", getattr(e, "body", ""), re.I):
+                return False  # quota du jour épuisé : attendre ne sert à rien
+            return e.code in (429, 500, 502, 503, 504)
+        return isinstance(e, OSError)
+
+    def ask_retry(model, waits=PATIENCE):
+        for i in range(len(waits) + 1):
             try:
-                return ask_retry(alt, waits=(30, 90))
+                return ask(model)
             except (urllib.error.URLError, OSError) as e:
-                err = e
-        raise err
-    if ant:
-        body = {"model": os.environ.get("RADAR_MODEL", "claude-sonnet-5-5"), "max_tokens": 8000,
-                "system": system, "messages": [{"role": "user", "content": user_msg}]}
-        req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(),
-                                     {"content-type": "application/json", "x-api-key": ant,
-                                      "anthropic-version": "2023-06-01"})
-        with urllib.request.urlopen(req, timeout=180) as r:
-            return "".join(b.get("text", "") for b in json.load(r)["content"])
-    sys.exit("Aucune clé (GEMINI_API_KEY gratuite, ou ANTHROPIC_API_KEY). Sinon lance avec --raw / --demo.")
+                if not transient(e) or i == len(waits):
+                    raise
+                print(f"[!] {model} : {getattr(e, 'code', type(e).__name__)}, nouvel essai dans {waits[i]}s", file=sys.stderr)
+                time.sleep(waits[i])
+
+    def others(exclude):  # autres modèles flash stables, du plus récent au plus ancien
+        req = urllib.request.Request("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
+                                     headers={"x-goog-api-key": gem})
+        ms = json.load(urllib.request.urlopen(req, timeout=30))["models"]
+        names = [m["name"].split("/")[-1] for m in ms
+                 if "flash" in m["name"] and "generateContent" in m.get("supportedGenerationMethods", [])
+                 and not re.search(r"image|tts|live|preview|exp|thinking|omni|audio|robotics|embed", m["name"])]
+        full = sorted((n for n in names if "lite" not in n), reverse=True)  # les « lite » écrivent moins bien : en dernier
+        return [n for n in full + sorted(n for n in names if "lite" in n) if n != exclude]
+
+    model = os.environ.get("RADAR_MODEL", "gemini-3.8-flash")
+    try:
+        return ask_retry(model)
+    except (urllib.error.URLError, OSError) as e:
+        if not (transient(e) or getattr(e, "code", None) in (404, 429)):
+            raise
+        err = e
+    for alt in others(model)[:ALTS]:
+        print(f"[!] modèle {model} indisponible, essai avec {alt}", file=sys.stderr)
+        try:
+            return ask_retry(alt, waits=(30, 90))
+        except (urllib.error.URLError, OSError) as e:
+            err = e
+    raise err
+
+
+def _mistral(user_msg, system, key):
+    body = {"model": os.environ.get("RADAR_MISTRAL_MODEL", "mistral-large-latest"), "temperature": 0.4, "max_tokens": 9000,
+            "response_format": {"type": "json_object"},
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user_msg}]}
+    for i, wait in enumerate((0, 15, 45, 90)):
+        time.sleep(wait)
+        req = urllib.request.Request("https://api.mistral.ai/v1/chat/completions", json.dumps(body).encode(),
+                                     {"content-type": "application/json", "authorization": f"Bearer {key}"})
+        try:
+            with urllib.request.urlopen(req, timeout=300) as r:
+                return json.load(r)["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 500, 502, 503, 504) or i == 3:
+                raise
+            print(f"[!] Mistral : {e.code}, nouvel essai", file=sys.stderr)
+        except OSError:
+            if i == 3:
+                raise
+            print("[!] Mistral : coupure, nouvel essai", file=sys.stderr)
+
+
+def _claude(user_msg, system, key):
+    body = {"model": os.environ.get("RADAR_CLAUDE_MODEL", "claude-sonnet-5-5"), "max_tokens": 8000,
+            "system": system, "messages": [{"role": "user", "content": user_msg}]}
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(),
+                                 {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"})
+    with urllib.request.urlopen(req, timeout=240) as r:
+        return "".join(b.get("text", "") for b in json.load(r)["content"])
+
+
+def call_llm(user_msg, system=None):
+    """Essaie les fournisseurs dans l'ordre : Gemini (gratuit), Mistral (gratuit), Claude (payant). Passe au suivant en cas d'échec."""
+    system = system or SYSTEM
+    env = os.environ.get
+    chain = []
+    if env("GEMINI_API_KEY"):
+        chain.append(("Gemini", lambda p: _gemini(user_msg, system, env("GEMINI_API_KEY"), *p)))
+    if env("MISTRAL_API_KEY"):
+        chain.append(("Mistral", lambda p: _mistral(user_msg, system, env("MISTRAL_API_KEY"))))
+    if env("ANTHROPIC_API_KEY"):
+        chain.append(("Claude", lambda p: _claude(user_msg, system, env("ANTHROPIC_API_KEY"))))
+    if not chain:
+        sys.exit("Aucune clé (GEMINI_API_KEY, MISTRAL_API_KEY ou ANTHROPIC_API_KEY). Sinon lance avec --raw / --demo.")
+    err = None
+    for i, (name, fn) in enumerate(chain):
+        last = i == len(chain) - 1
+        patience, alts = ((20, 60, 120, 180), 3) if last else ((15, 45), 1)  # un secours existe : on n'insiste pas
+        try:
+            return fn((patience, alts))
+        except (urllib.error.URLError, OSError) as e:
+            err = e
+            print(f"[!] {name} indisponible ({getattr(e, 'code', type(e).__name__)})" + ("" if last else ", bascule sur le fournisseur suivant"), file=sys.stderr)
+    raise err
 
 
 def recent_topics(days=3):
