@@ -275,7 +275,7 @@ def call_llm(user_msg, system=None):
                 return e.code in (429, 500, 502, 503, 504)
             return isinstance(e, OSError)
 
-        def ask_retry(model, waits=(15, 45, 90)):
+        def ask_retry(model, waits=(20, 60, 120, 180)):
             for i in range(len(waits) + 1):
                 try:
                     return ask(model)
@@ -305,7 +305,7 @@ def call_llm(user_msg, system=None):
         for alt in others(model)[:3]:
             print(f"[!] modèle {model} indisponible, essai avec {alt}", file=sys.stderr)
             try:
-                return ask_retry(alt, waits=(20,))
+                return ask_retry(alt, waits=(30, 90))
             except (urllib.error.URLError, OSError) as e:
                 err = e
         raise err
@@ -487,12 +487,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", action="store_true", help="signaux bruts, sans Claude")
     ap.add_argument("--demo", action="store_true", help="fiches d'exemple hors ligne")
+    ap.add_argument("--si-absent", action="store_true", help="ne rien faire si l'édition du jour est déjà publiée")
     ap.add_argument("--monte", action="store_true", help="mise à jour de midi : seulement « Ça monte »")
     a = ap.parse_args()
     now = dt.datetime.now().strftime("%d/%m/%Y %H:%M")
     if a.demo:
         fiches = json.loads((HERE / "demo.json").read_text(encoding="utf-8"))
         return render({"mode": "demo", "generated": now, "fiches": fiches, "ca_monte": [], "chiffres": [], "feeds_ko": [], "signals": []})
+    if a.si_absent and (OUT / "latest.json").exists():
+        cur = json.loads((OUT / "latest.json").read_text(encoding="utf-8"))
+        if cur.get("mode") == "live" and not cur.get("stale") and cur.get("generated", "")[:10] == f"{dt.date.today():%d/%m/%Y}":
+            return print("Édition du jour déjà publiée : rien à faire.")
     prev = None
     if a.monte and (OUT / "latest.json").exists():
         prev = json.loads((OUT / "latest.json").read_text(encoding="utf-8"))
@@ -509,7 +514,7 @@ def main():
     try:
         fiches, monte, chiffres = ([], [], []) if a.raw else synthesize(signals)
     except Exception as e:
-        print(f"::error::Génération impossible aujourd'hui ({type(e).__name__}: {str(e)[:300]})", file=sys.stderr)
+        print(f"::error::Génération impossible aujourd'hui ({type(e).__name__}: {str(e)[:300]} | {getattr(e, 'url', '').split('?')[0]})", file=sys.stderr)
         p = OUT / "latest.json"
         old = json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
         if old and old.get("fiches"):
