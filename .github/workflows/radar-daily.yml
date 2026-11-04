@@ -1,8 +1,9 @@
 name: radar-daily
 on:
   schedule:
-    - cron: "0 6 * * *"    # édition du matin, 6h UTC (7h/8h à Paris)
-    - cron: "0 12 * * *"   # mise à jour « Ça monte », 12h UTC (13h/14h à Paris)
+    - cron: "30 8 * * *"   # édition du matin, 8h30 UTC (9h30/10h30 à Paris), après la remise à zéro du quota Gemini
+    - cron: "30 10 * * *"  # 2e essai : seulement si l'édition du matin a échoué (Gemini surchargé)
+    - cron: "0 13 * * *"   # mise à jour « Ça monte », 13h UTC (14h/15h à Paris)
   workflow_dispatch:
 permissions:
   contents: write
@@ -12,13 +13,20 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
+    env:   # au niveau du job : toutes les étapes reçoivent les clés
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      RADAR_WEBHOOK: ${{ secrets.RADAR_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
-      - run: python3 radar.py ${{ github.event.schedule == '0 12 * * *' && '--monte' || '' }}
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          RADAR_WEBHOOK: ${{ secrets.RADAR_WEBHOOK }}
+      - name: Diagnostic des secrets (n'affiche jamais leur valeur)
+        run: |
+          echo "Dépôt : ${{ github.repository }} | branche : ${{ github.ref_name }} | événement : ${{ github.event_name }}"
+          echo "Secret GEMINI_API_KEY visible par ce workflow : ${{ secrets.GEMINI_API_KEY != '' }}"
+          echo "Secret MISTRAL_API_KEY visible par ce workflow : ${{ secrets.MISTRAL_API_KEY != '' }}"
+          echo "Secret ANTHROPIC_API_KEY visible par ce workflow : ${{ secrets.ANTHROPIC_API_KEY != '' }}"
+      - run: python3 radar.py ${{ github.event.schedule == '0 13 * * *' && '--monte' || (github.event.schedule == '30 10 * * *' && '--si-absent' || '') }}
       - name: Publier
         run: |
           git config user.name radar && git config user.email radar@users.noreply.github.com
