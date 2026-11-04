@@ -24,11 +24,16 @@ h2{font-size:18px;line-height:1.25;margin:0}
 .angle b{display:block;font-size:12px;color:var(--mut);font-weight:600;margin-bottom:4px}
 button.cp{margin-top:6px;font:inherit;font-size:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:6px;padding:3px 8px;cursor:pointer}
 .warn{background:#e5322d1a;color:var(--hot);border-radius:8px;padding:8px 10px;font-size:13px}
-#monte,#chiffres{max-width:1100px;margin:8px auto;padding:0 16px}
-#monte h3,#chiffres h3{margin:10px 0 8px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+#monte,#chiffres,#auto{max-width:1100px;margin:8px auto;padding:0 16px}
+#monte h3,#chiffres h3,#auto h3{margin:10px 0 8px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
 .mrow{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:10px 14px;margin-bottom:8px;display:grid;gap:2px}
 .mrow.no{border-left-color:var(--mut);opacity:.85}
 .mrow b{font-size:15px}.tiny{font-size:12px;color:var(--mut)}a{color:inherit}
+.sec{grid-column:1/-1;margin:14px 0 0;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.sec small{text-transform:none;letter-spacing:0;font-size:12px;margin-left:8px}
+.card.a3{border-top:4px solid var(--base)}.b.fam{background:var(--base)}
+.cl{display:flex;flex-wrap:wrap;gap:4px}.cl span{font-size:11px;border:1px solid var(--line);border-radius:99px;padding:1px 8px;color:var(--mut)}
+.idea{background:var(--bg);border-radius:8px;padding:10px;font-size:14px}
 table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .raw{max-width:1100px;margin:auto;padding:8px 16px 60px;overflow-x:auto}
 </style></head><body>
@@ -38,6 +43,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;borde
 <div class="bar" id="bar"></div>
 <section id="monte"></section>
 <section id="chiffres"></section>
+<section id="auto"></section>
 <main id="cards"></main>
 <div class="raw" id="ko"></div>
 <div class="raw" id="raw"></div>
@@ -45,34 +51,60 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;borde
 const D=/*DATA*/null;
 const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const U={chaud:"Chaud 24-72h",montant:"Émergent",fond:"Tendance de fond"};
-let urg="all",cat="all",q="";
+let urg="all",cat="all",q="",fam="all",cli="all";
+const chips=c=>(c&&c.length)?`<div class="cl">${c.map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:"";
 $("#meta").textContent="Mis à jour le "+D.generated+" · "+D.fiches.length+" fiches · "+D.signals.length+" signaux";
 if(D.stale)$("#banner").innerHTML='<div class="banner">'+esc(D.stale)+'</div>';
 if(D.mode==="demo")$("#banner").innerHTML='<div class="banner">Mode démo : fiches d\'exemple, chiffres et sources non vérifiés. Lance <code>python radar.py</code> pour des données réelles.</div>';
+function allClients(){const s=new Set();[...D.fiches,...(D.sujets||[]),...(D.frictions||[]),...(D.problemes||[])].forEach(x=>(x.clients||[]).forEach(c=>s.add(c)));return [...s]}
 function bar(){
- const cats=[...new Set(D.fiches.map(f=>f.categorie))];
- $("#bar").innerHTML=["all",...Object.keys(U)].map(k=>`<button class="chip ${urg===k?"on":""}" data-u="${k}">${k==="all"?"Tout":U[k]}</button>`).join("")+
- `<select id="cat"><option value="all">Toutes catégories</option>${cats.map(c=>`<option ${c===cat?"selected":""}>${esc(c)}</option>`).join("")}</select><input id="q" placeholder="Rechercher…" value="${esc(q)}">`;
+ const hasF=D.fiches.length,cls=allClients();
+ if(!hasF&&!cls.length){$("#bar").innerHTML="";return}
+ let h="";
+ if(hasF){
+  const FL={all:"Tout",client:"Pour les clients",artefact3000:"Pour les gens · Artefact 3000"};
+  h+=Object.keys(FL).map(k=>`<button class="chip ${fam===k?"on":""}" data-f="${k}">${FL[k]}</button>`).join("");
+  h+=["all",...Object.keys(U)].map(k=>`<button class="chip ${urg===k?"on":""}" data-u="${k}">${k==="all"?"Toutes urgences":U[k]}</button>`).join("");
+ }
+ if(cls.length)h+=`<select id="cli"><option value="all">Tous les clients</option>${cls.map(c=>`<option ${c===cli?"selected":""}>${esc(c)}</option>`).join("")}</select>`;
+ if(hasF){const cats=[...new Set(D.fiches.map(f=>f.categorie).filter(Boolean))];h+=`<select id="cat"><option value="all">Toutes catégories</option>${cats.map(c=>`<option ${c===cat?"selected":""}>${esc(c)}</option>`).join("")}</select><input id="q" placeholder="Rechercher…" value="${esc(q)}">`}
+ $("#bar").innerHTML=h;
+ document.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{fam=b.dataset.f;bar();draw()});
  document.querySelectorAll("[data-u]").forEach(b=>b.onclick=()=>{urg=b.dataset.u;bar();draw()});
- $("#cat").onchange=e=>{cat=e.target.value;draw()};$("#q").oninput=e=>{q=e.target.value.toLowerCase();draw()};
+ if($("#cli"))$("#cli").onchange=e=>{cli=e.target.value;draw()};
+ if($("#cat"))$("#cat").onchange=e=>{cat=e.target.value;draw()};
+ if($("#q"))$("#q").oninput=e=>{q=e.target.value.toLowerCase();draw()};
 }
 function card(f){
  const liens=(f.liens||[]).map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join(" · ");
+ const pied=`<div class="tiny">Sources : ${esc((f.sources||[]).join(", "))}${liens?"<br>"+liens:""}</div>${f.a_verifier?`<div class="tiny">À vérifier : ${esc(f.a_verifier)}</div>`:""}`;
+ if(f.famille==="artefact3000")return `<article class="card a3"><div class="top"><span class="b fam">Artefact 3000</span><span>${esc(f.categorie||"")}</span></div>
+ <h2>${esc(f.titre)}</h2>${chips(f.clients)}
+ <div><div class="lbl">Public touché</div>${esc(f.public)}</div>
+ <div><div class="lbl">Le problème</div>${esc(f.probleme||f.signal)}</div>
+ ${f.preuve?`<div class="proof"><div class="lbl">La preuve</div>${esc(f.preuve)}</div>`:""}
+ <div class="idea"><div class="lbl">L'idée</div><b>${esc(f.idee)}</b>${(f.format||f.effort)?`<div class="tiny">${f.format?"Format : "+esc(f.format):""}${f.effort?" · effort estimé (à confirmer) : "+esc(f.effort):""}</div>`:""}<button class="cp" data-t="${esc(f.idee)}">Copier</button></div>
+ ${f.limites?`<div class="tiny">⚠ Limites : ${esc(f.limites)}</div>`:""}${pied}</article>`;
  return `<article class="card"><div class="top"><span class="b ${esc(f.urgence)}">${U[f.urgence]||esc(f.urgence)}</span><span>${esc(f.categorie)}</span></div>
- <h2>${esc(f.titre)}</h2>
+ <h2>${esc(f.titre)}</h2>${chips(f.clients)}
  <div><div class="lbl">Le signal</div>${esc(f.signal)}</div>
  <div><div class="lbl">Statut</div>${esc(f.statut)}</div>
  ${f.insight?`<div class="proof"><div class="lbl">L'insight</div><b>${esc(f.insight)}</b></div>`:""}
  ${f.preuve?`<div class="proof"><div class="lbl">La preuve</div>${esc(f.preuve)}</div>`:""}
  ${f.rebondable===false?`<div class="warn"><b>Ne pas rebondir.</b> ${esc(f.risque)}</div>`:(f.risque?`<div class="tiny">⚠ ${esc(f.risque)}</div>`:"")}
  ${(f.angles||[]).map((a,i)=>`<div class="angle"><b>Pour : ${esc(a.pour_qui)}</b>${esc(a.message)}<br><button class="cp" data-t="${esc(a.message)}">Copier</button></div>`).join("")}
- <div class="tiny">Sources : ${esc((f.sources||[]).join(", "))}${liens?"<br>"+liens:""}</div>
- ${f.a_verifier?`<div class="tiny">À vérifier : ${esc(f.a_verifier)}</div>`:""}</article>`;
+ ${pied}</article>`;
 }
+function ok(f){return (fam==="all"||(f.famille||"client")===fam)&&(urg==="all"||f.urgence===urg)&&(cat==="all"||f.categorie===cat)&&(cli==="all"||(f.clients||[]).includes(cli))&&(!q||JSON.stringify(f).toLowerCase().includes(q))}
+function applyCli(){document.querySelectorAll("[data-cl]").forEach(e=>{const l=e.dataset.cl?e.dataset.cl.split("|"):[];e.style.display=(cli==="all"||l.includes(cli))?"":"none"})}
 function draw(){
- const L=D.fiches.filter(f=>(urg==="all"||f.urgence===urg)&&(cat==="all"||f.categorie===cat)&&(!q||JSON.stringify(f).toLowerCase().includes(q)));
- $("#cards").innerHTML=L.map(card).join("")||(D.fiches.length?'<p class="sub">Aucune fiche.</p>':"");
+ const L=D.fiches.filter(ok),C=L.filter(f=>(f.famille||"client")!=="artefact3000"),G=L.filter(f=>f.famille==="artefact3000");
+ let h="";
+ if(C.length)h+='<h3 class="sec">Pour les clients<small>faits, frictions et angles de marque</small></h3>'+C.map(card).join("");
+ if(G.length)h+='<h3 class="sec">Pour les gens · Artefact 3000<small>problèmes réels, idées créatives à sortir en notre nom</small></h3>'+G.map(card).join("");
+ $("#cards").innerHTML=h||(D.fiches.length?'<p class="sub">Aucune fiche.</p>':"");
  document.querySelectorAll(".cp").forEach(b=>b.onclick=()=>{navigator.clipboard?.writeText(b.dataset.t);b.textContent="Copié ✓"});
+ applyCli();
 }
 function raw(){
  if(D.fiches.length||!D.signals.length)return;
@@ -94,6 +126,17 @@ function arch(){
  const L=(D.archive||[]);if(L.length<2&&!inA)return;
  $("#arch").innerHTML='<span class="tiny">Éditions :</span> <a class="chip" href="'+(inA?"../index.html":"index.html")+'">Dernière</a> '+L.slice(0,14).map(d=>`<a class="chip" href="${pre}${d}.html">${d.slice(8)}/${d.slice(5,7)}</a>`).join(" ");
 }
+function auto(){
+ if(D.mode!=="auto")return;
+ const A=[],cl=x=>(x.clients&&x.clients.length)?` · clients : ${esc(x.clients.join(", "))}`:"",age=i=>i.age!=null?`, il y a ${i.age} h`:"";
+ A.push('<div class="mrow"><b>Édition automatique, sans IA</b><span class="tiny">Chaque ligne vient d\'un article collecté et garde son lien. Pour obtenir les fiches rédigées (6 pour les clients, 4 idées pour les gens), copie le prompt ci-dessous et colle-le dans Claude, Gemini ou ChatGPT.</span><span><button class="chip" id="cp">Copier le prompt pour rédiger les fiches</button></span></div>');
+ if((D.problemes||[]).length)A.push('<h3>Problèmes concrets du moment <span class="tiny">(matière à idées « Artefact 3000 pour les gens »)</span></h3>'+D.problemes.map(p=>`<div class="mrow" data-cl="${esc((p.clients||[]).join("|"))}"><b>${esc(p.public)}</b><span class="tiny">${p.nb_medias} média(s)${cl(p)}</span>${p.items.map(i=>`<span><a href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.titre)}</a> <span class="tiny">(${esc(i.source)}${age(i)})</span></span>`).join("")}</div>`).join(""));
+ if((D.sujets||[]).length)A.push("<h3>Sujets repérés par plusieurs sources</h3>"+D.sujets.map(s=>`<div class="mrow ${s.sensible?"no":""}" data-cl="${esc((s.clients||[]).join("|"))}"><b>${esc(s.titre)} ${s.sensible?'<span class="tiny">· sensible, ne pas rebondir</span>':""}</b><span class="tiny">${s.medias.length} médias : ${esc(s.medias.slice(0,6).join(", "))} · mots-clés : ${esc((s.tags||[]).join(", "))}${cl(s)}</span><span class="tiny">${s.liens.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join(" · ")}</span></div>`).join(""));
+ if((D.frictions||[]).length)A.push("<h3>Frictions du moment (agacement, rejet, saturation)</h3>"+D.frictions.map(f=>`<div class="mrow" data-cl="${esc((f.clients||[]).join("|"))}"><b><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.titre)}</a></b><span class="tiny">${esc(f.source)}${f.age!=null?" · il y a "+f.age+" h":""} · mot repéré : « ${esc(f.mot)} »${cl(f)}</span></div>`).join(""));
+ if((D.lectures||[]).length)A.push("<h3>À lire cette semaine (newsletters, culture)</h3>"+D.lectures.map(l=>`<div class="mrow"><b><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.titre)}</a></b><span class="tiny">${esc(l.source)}${l.age!=null?" · il y a "+Math.round(l.age/24)+" j":""}</span>${l.note?`<span class="tiny">${esc(l.note)}</span>`:""}</div>`).join(""));
+ $("#auto").innerHTML=A.join("");
+ const b=$("#cp");if(b)b.onclick=()=>{try{navigator.clipboard.writeText(D.prompt||"");b.textContent="Copié ✓ - colle-le dans ton outil de chat"}catch(e){b.textContent="Copie impossible : sélectionne le texte à la main"}};
+}
 function ko(){if((D.feeds_ko||[]).length)$("#ko").innerHTML='<p class="tiny">Flux sans réponse ce jour : '+esc(D.feeds_ko.join(", "))+"</p>"}
-bar();monte();chiffres();draw();raw();ko();arch();
+bar();monte();chiffres();auto();draw();raw();ko();arch();
 </script></body></html>
