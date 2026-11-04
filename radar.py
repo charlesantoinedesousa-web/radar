@@ -255,8 +255,8 @@ def collect():
 SYSTEM = """Tu es l'assistant de veille d'un directeur de création en agence : une REVUE DE PRESSE quotidienne de signaux, \
 frictions et contre-mouvements sur lesquels une marque peut rebondir en com. Il veut du récent, de l'actualité, de l'insight \
 et du chiffre, pas des généralités.
-À partir des SIGNAUX fournis (articles des dernières 72h, pics Wikipédia, Google Trends, Reddit, newsletters), produis 10 fiches.
-MIX : environ 4 rebonds liés à l'actualité chaude, 6 signaux/frictions/contre-tendances. Équilibre : digital/tech, conso/retail, \
+À partir des SIGNAUX fournis (articles des dernières 72h, pics Wikipédia, Google Trends, Reddit, newsletters), produis 10 fiches en DEUX FAMILLES : 6 fiches "client" et 4 fiches "artefact3000" (voir FAMILLES plus bas).
+MIX des 6 fiches client : environ 2 rebonds liés à l'actualité chaude, 4 signaux/frictions/contre-tendances. Équilibre : digital/tech, conso/retail, \
 société/travail, esthétique/DA, culture web/mèmes, data/étude, écologie, food/lifestyle.
 RÈGLES ÉDITORIALES :
 - Zéro marronnier : écarte ce que la presse grand public a déjà rincé (ex. run clubs, matcha, quiet quitting classique) \
@@ -277,8 +277,23 @@ et non des seules actualités généralistes. Quand un signal de type « GActu �
 utilise-le comme "preuve" en nommant l'institut tel qu'il apparaît dans le titre (jamais d'autre).
 PRIORITÉ FRANCE : une marque française doit pouvoir s'en servir. Au moins 6 fiches sur 10 s'appuient sur un signal français ou européen ; \
 pour un signal venu de l'étranger, dis dans "a_verifier" s'il est déjà visible en France.
+FAMILLES : chaque fiche porte "famille" = "client" ou "artefact3000".
+- "client" (6 fiches) : un fait, une friction ou une contre-tendance utile à un ou plusieurs clients de l'agence ; champs "insight" et "angles" (règles ci-dessus).
+- "artefact3000" (4 fiches) : « Artefact 3000 » est l'agence de publicité elle-même. Ces fiches proposent ce que l'agence pourrait sortir EN SON NOM, POUR LES GENS : \
+un problème réel que des gens rencontrent à cause d'un événement du moment (grève, blocage, canicule, froid, hausse des prix, panne, réforme, échéance, rentrée, examens, pénurie, polémique...), \
+résolu par une idée CRÉATIVE ET ORIGINALE, simple à réaliser vite. Ce peut être un outil, un objet, un affichage, un détournement, un service, un événement, un contenu : \
+PAS forcément numérique. Exemple : des blocages privent des étudiants de cours -> une idée originale pour les aider à rattraper. \
+Champs de ces fiches : "public" (qui est touché), "probleme" (ce qui leur manque, une phrase appuyée sur les signaux), "idee" (l'idée créative, une à trois phrases concrètes), \
+"format" (outil, affichage, objet, événement, contenu, détournement...), "effort" ("léger" = quelques jours, "moyen" ou "lourd" : estimation à confirmer), \
+"limites" (neutralité, droits, risques, ce qu'il ne faut pas promettre). Pas de "angles" pour ces fiches.
+  RÈGLES ARTEFACT 3000 : NON PARTISAN (aide les gens à s'adapter ou à s'en sortir, ne prend jamais parti pour ou contre un mouvement, un gouvernement ou une entreprise) ; \
+jamais sur un drame, un deuil ou une catastrophe (pas d'exploitation) ; aucune donnée personnelle sensible ; aucun effet chiffré promis ; ne cite que des faits présents dans les signaux ; \
+"a_verifier" liste ce qu'il faut confirmer (le besoin réel, la faisabilité, les droits).
+CLIENTS : si une liste de clients figure dans le contexte, renseigne pour chaque fiche "clients" : les noms EXACTS des clients (pris dans la liste) pour qui le sujet ou l'idée est pertinent \
+(secteur, thème, valeurs), [] si aucun. Favorise les sujets qui concernent au moins un client, sans écarter une bonne idée "artefact3000" qui n'en concerne aucun. \
+Pour les associations et fondations de la liste, un sujet grave peut donner une fiche "client" seulement si l'idée est respectueuse et utile ; écris alors « sujet sensible : validation requise » dans "risque".
 URGENCE : uniquement "chaud", "montant" ou "fond" (aucune autre valeur).
-FICHES JAMAIS VIDES : n'écris une fiche que si le sujet est rebondable. Un sujet sensible (deuil, drame, hack, crise, polémique) ne fait PAS \
+FICHES JAMAIS VIDES : n'écris une fiche que si le sujet est rebondable (une fiche client a des angles, une fiche artefact3000 a une idée). Un sujet sensible (deuil, drame, hack, crise, polémique) ne fait PAS \
 partie des 10 fiches : mets-le dans "ca_monte".
 "ca_monte" = 6 à 8 sujets qui MONTENT aujourd'hui, repérés surtout via les pics Wikipédia, Google Trends et Google Actualités \
 (événements, personnalités, sorties, polémiques, météo, sport, culture). Pour chacun : "pourquoi" (la cause, uniquement si un signal l'établit, \
@@ -295,10 +310,23 @@ CHIFFRES UTILES : ne retiens dans "chiffres" que ceux qui éclairent consommatio
 de faits divers, de santé grave, de suicide, de fin de vie, de justice ou de politique partisane.
 ANGLES : un angle part d'une tension réelle et prend position (« ce que la marque dit que les autres n'osent pas »). Interdit : slogans génériques, \
 promesses vagues (« infiniment plus de goût »), jeux de mots creux. Le message doit pouvoir être affiché tel quel, en une à deux phrases.
-Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"titre","categorie","insight","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
+Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"famille":"client|artefact3000","titre","categorie","insight","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}],"clients":[],"public":"","probleme":"","idee":"","format":"","effort":"léger|moyen|lourd","limites":""}]}"""
 
 
 DEAD = set()  # fournisseurs hors service pendant ce run
+FAILS = []    # nature des échecs de l'étape en cours : "quota", "zero", "size", "rate", "other"
+
+
+def _nature(e):
+    if isinstance(e, QuotaZero):
+        return "zero"
+    if isinstance(e, urllib.error.HTTPError):
+        corps = getattr(e, "body", "") or ""
+        if e.code == 413:
+            return "size"
+        if e.code == 429:
+            return "quota" if re.search(r"per ?day|quota", corps, re.I) else "rate"
+    return "other"
 
 
 def _key(name):
@@ -374,6 +402,10 @@ def _gemini(user_msg, system, gem, PATIENCE, ALTS):
     raise err
 
 
+class QuotaZero(Exception):
+    """Le service annonce une limite de 0 requête par minute : la clé ne peut rien envoyer (offre non activée ou accès gratuit supprimé)."""
+
+
 _MISTRAL_LAST = [0.0]
 
 
@@ -397,6 +429,9 @@ def _mistral(user_msg, system, key):
                 if e.code in (403, 404):
                     print(f"[!] Mistral : {model} non disponible dans ton offre ({e.code})", file=sys.stderr)
                     break
+                if e.code == 429 and e.headers and str(e.headers.get("x-ratelimit-limit-req-minute", "")).strip() == "0":
+                    raise QuotaZero("Mistral annonce une limite de 0 requête par minute pour cette clé : l'offre n'est probablement pas activée sur ce compte, "
+                                    "ou l'accès gratuit à l'API n'existe plus. Inutile de réessayer.")
                 if e.code not in (429, 500, 502, 503, 504) or i == 1:
                     raise
                 ra = e.headers.get("Retry-After") if e.headers else None
@@ -457,6 +492,7 @@ def call_llm(user_msg, system=None):
         except Exception as e:  # toute erreur d'un fournisseur (réseau, clé refusée, réponse inattendue) : on passe au suivant
             err = e
             DEAD.add(name)
+            FAILS.append(_nature(e))
             detail = ""
             if isinstance(e, urllib.error.HTTPError):
                 try:
@@ -491,18 +527,21 @@ def recent_topics(days=3):
 
 SELECT = """Tu es le rédacteur en chef d'une revue de presse pour un directeur de création en agence. À partir des SIGNAUX, tu SÉLECTIONNES les sujets ; \
 un rédacteur écrira ensuite les fiches. Choisis :
-- 10 sujets de fiches (environ 4 liés à l'actualité chaude, 6 frictions / contre-tendances / signaux) ;
+- 6 sujets de fiches CLIENT (environ 2 liés à l'actualité chaude, 4 frictions / contre-tendances / signaux) ;
+- 4 sujets de fiches ARTEFACT 3000 (ce que l'agence de publicité pourrait sortir en son nom POUR LES GENS) : un problème réel que des gens rencontrent à cause d'un événement du moment \
+(grève, blocage, canicule, froid, hausse des prix, panne, réforme, échéance, examens, pénurie, polémique) et qui appelle une idée créative et originale, simple à réaliser vite, NON PARTISANE. \
+Jamais un drame, un deuil ou une catastrophe. Cherche le problème pratique des gens, pas le débat politique ;
 - 7 sujets « ça monte aujourd'hui » (pics Wikipédia, Google Trends, Google Actualités : événements, personnalités, sorties, polémiques) ;
 - 8 signaux contenant un chiffre, une étude ou un sondage utiles (consommation, usages, marques, tech, travail, médias, culture ; jamais faits divers, \
 santé grave, suicide, fin de vie, justice, politique partisane).
-CRITÈRES : zéro marronnier déjà rincé ; priorité aux frictions (agacement, saturation, rejet) et aux contrecoups ; regroupe les signaux d'un même sujet ; \
+CRITÈRES : priorité aux sujets qui concernent au moins un client de la liste fournie dans le contexte (secteur, thème, valeurs) ; zéro marronnier déjà rincé ; priorité aux frictions (agacement, saturation, rejet) et aux contrecoups ; regroupe les signaux d'un même sujet ; \
 privilégie les sujets confirmés par au moins 2 sources différentes ; au moins 4 sujets venus de la culture, de la tech underground ou des communautés \
 (pas seulement des actualités généralistes) ; au moins 6 sujets français ou européens ; ne répète pas les sujets déjà traités ; \
 les sujets sensibles (deuil, drame, crime, hack, polémique clivante) vont dans « ca_monte », jamais dans « fiches ».
-ÉQUILIBRE OBLIGATOIRE DES 10 FICHES : pas plus de 3 sujets tech/IA/numérique ; au moins 1 sujet food/lifestyle, 1 mode/design/esthétique, \
+ÉQUILIBRE OBLIGATOIRE DES 6 FICHES CLIENT : pas plus de 3 sujets tech/IA/numérique ; au moins 1 sujet food/lifestyle, 1 mode/design/esthétique, \
 1 culture/musique/mèmes, 1 travail/société, 1 consommation/retail. Pour les 8 chiffres : un seul chiffre par signal, des chiffres français ou \
 européens de préférence.
-Réponds UNIQUEMENT en JSON : {"fiches":[{"sujet":"","signal_ids":[],"urgence":"chaud|montant|fond"}],"ca_monte":[{"sujet":"","signal_ids":[]}],"chiffres":[{"signal_ids":[]}]}"""
+Réponds UNIQUEMENT en JSON : {"fiches":[{"sujet":"","signal_ids":[],"urgence":"chaud|montant|fond","famille":"client|artefact3000"}],"ca_monte":[{"sujet":"","signal_ids":[]}],"chiffres":[{"signal_ids":[]}]}"""
 
 MONTE = """Tu mets à jour la rubrique « Ça monte aujourd'hui » d'une revue de presse pour un directeur de création. À partir des SIGNAUX (pics Wikipédia, \
 Google Trends, Google Actualités, communautés), liste 6 à 8 sujets qui MONTENT maintenant (événements, personnalités, sorties, polémiques, météo, sport, culture). \
@@ -601,20 +640,44 @@ def ia_subset(signals, cap):
     return out
 
 
-def _limite_taille(e):
-    """Vrai si l'échec ressemble à une requête trop grosse / un débit dépassé (on réessaie en plus petit)."""
-    return isinstance(e, urllib.error.HTTPError) and e.code in (413, 429) or "déjà tombés" in str(e)
+def _limite_taille():
+    """Vrai si au moins un refus peut venir de la taille de la requête (413, ou 429 de débit) : alors on réessaie en plus petit.
+    Un quota épuisé ou une limite à 0 n'a rien à voir avec la taille : inutile de réduire."""
+    return any(k in ("size", "rate") for k in FAILS)
+
+
+def clients_cfg():
+    """Clients lus dans profil.md : lignes « CLIENT: Nom | mot-clé, mot-clé ». Renvoie [(nom, [mots-clés])]."""
+    p = HERE / "profil.md"
+    out = []
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"\s*CLIENT\s*:\s*([^|]+?)\s*(?:\|\s*(.*))?$", line)
+            if m:
+                out.append((m.group(1).strip(), [k.strip() for k in (m.group(2) or "").split(",") if k.strip()]))
+    return out
+
+
+def profil():
+    """Contexte facultatif décrit dans profil.md (clients, secteurs, publics, ton) : les lignes qui commencent par # sont ignorées."""
+    p = HERE / "profil.md"
+    if not p.exists():
+        return ""
+    return "\n".join(l.rstrip() for l in p.read_text(encoding="utf-8").splitlines() if l.strip() and not l.lstrip().startswith("#"))[:3000]
 
 
 def synthesize(signals):
     by_id = {s["id"]: s for s in signals}
     seen = recent_topics()
+    ctx = profil()
     head = (f"Date : {dt.date.today():%d/%m/%Y}\n"
+            + (f"CONTEXTE DE L'AGENCE (à privilégier pour choisir et orienter les sujets et les angles) :\n{ctx}\n" if ctx else "")
             + (("SUJETS DÉJÀ TRAITÉS CES DERNIERS JOURS (ne les répète pas, sauf évolution notable) : " + " ; ".join(seen) + "\n") if seen else ""))
     # passe 1 : sélection des sujets (réponse courte, ids seulement) ; si le service limite le débit, on réessaie avec moins de signaux
     sel, ids, used_cap = None, set(), None
     for k, cap in enumerate((int(os.environ.get("RADAR_IA_MAX", "220")), 110, 60)):
         sub = ia_subset(signals, cap)
+        FAILS.clear()
         try:
             sel = _json(head + "SIGNAUX :\n" + "\n".join(_lines_courtes(sub)), SELECT)
             ids = {i for key in ("fiches", "ca_monte", "chiffres") for it in sel.get(key, []) for i in it.get("signal_ids", []) if i in by_id}
@@ -624,7 +687,7 @@ def synthesize(signals):
             break
         except Exception as e:
             sel = None
-            if k < 2 and _limite_taille(e):
+            if k < 2 and _limite_taille():
                 print(f"[!] requête refusée ({str(e)[:60]}) : nouvel essai avec {(110, 60)[k]} signaux dans 60 s", file=sys.stderr)
                 DEAD.clear()
                 time.sleep(60)
@@ -646,8 +709,13 @@ def synthesize(signals):
     for f in fiches:
         if f.get("urgence") not in ("chaud", "montant", "fond"):
             f["urgence"] = "montant"
+        if f.get("famille") not in ("client", "artefact3000"):
+            f["famille"] = "artefact3000" if (f.get("idee") and not f.get("angles")) else "client"
         f["liens"] = _liens(by_id, f.get("signal_ids", []))
-        if f.get("angles") and not SENSIBLE.search(f.get("titre", "")):
+        valides = {n for n, _ in clients_cfg()}
+        f["clients"] = [c for c in (f.get("clients") or []) if c in valides]  # jamais un nom que l'IA aurait inventé
+        complete = f.get("idee") if f["famille"] == "artefact3000" else f.get("angles")
+        if complete and not SENSIBLE.search(f.get("titre", "")):
             keep.append(f)
         else:  # fiche sans angle : bascule dans « Ça monte »
             monte.append({"sujet": f.get("titre", ""), "pourquoi": f.get("signal", ""), "mesure": f.get("preuve") or "",
@@ -746,7 +814,7 @@ def main():
             print(f"::warning::L'IA n'a pas répondu ({type(e).__name__}: {str(e)[:200]}) : édition automatique à la place.", file=sys.stderr)
     if payload is None:
         auto = _auto()
-        payload = auto.build(signals, now)
+        payload = auto.build(signals, now, clients_cfg(), profil())
         payload["generated"] = now
         if ai:
             payload["stale"] = "L'IA n'a pas répondu ce matin : édition automatique (sans rédaction de fiches) affichée à la place."
@@ -963,43 +1031,134 @@ def lectures(signals, limit=30):
     return out[:limit]
 
 
+# ---------- 5 bis. clients et problèmes concrets ----------
+def tag_clients(texte, clients):
+    """Clients de l'agence dont un mot-clé figure dans le texte (mot entier, pluriel accepté)."""
+    t = norm(texte)
+    out = []
+    for nom, mots in clients or []:
+        for m in mots:
+            k = norm(m).strip()
+            if len(k) >= 3 and re.search(r"(?<![a-z0-9])" + re.escape(k) + r"s?(?![a-z0-9])", t):
+                out.append(nom)
+                break
+    return out
+
+
+DISRUPT = ["grève", "blocage", "bloqué", "bloqués", "perturbation", "annulé", "annulation", "retard", "pénurie", "rupture", "panne", "coupure",
+           "fermeture", "canicule", "vigilance", "inondation", "tempête", "neige", "verglas", "hausse", "flambée", "augmentation", "suppression",
+           "réforme", "échéance", "date limite", "manifestation", "mobilisation", "saturé", "files d'attente", "délai", "bug"]
+PUBLICS = [
+    ("Étudiants et lycéens", ["étudiant", "lycéen", "lycée", "élève", "partiels", "examen", "bac ", "université", "fac ", "parcoursup", "rentrée"]),
+    ("Voyageurs et usagers des transports", ["sncf", "train", "voyageur", "usager", "rer", "métro", "tgv", "aérien", "avion", "aéroport", "vol ", "bagage", "ratp"]),
+    ("Automobilistes", ["automobiliste", "carburant", "essence", "gazole", "péage", "embouteillage", "permis"]),
+    ("Locataires et propriétaires", ["locataire", "loyer", "logement", "propriétaire", "immobilier", "copropriété"]),
+    ("Retraités et futurs retraités", ["retraité", "retraite", "pension"]),
+    ("Salariés et demandeurs d'emploi", ["salarié", "chômage", "emploi", "licenciement", "employeur", "travailleur"]),
+    ("Parents et familles", ["parent", "crèche", "enfant", "école", "garde d'enfant", "famille"]),
+    ("Patients", ["patient", "hôpital", "médecin", "pharmacie", "médicament", "urgences", "santé"]),
+    ("Ménages (budget, énergie, courses)", ["facture", "électricité", "gaz", "énergie", "prix", "courses", "supermarché", "inflation", "pouvoir d'achat", "chauffage"]),
+    ("Petites entreprises et commerçants", ["commerçant", "artisan", "pme", "entreprise", "restaurateur"]),
+    ("Agriculteurs", ["agriculteur", "éleveur", "récolte", "sécheresse"]),
+    ("Vacanciers et touristes", ["vacances", "touriste", "tourisme", "séjour", "week-end", "station de ski"]),
+]
+
+
+def _mot(t, mot):
+    return re.search(r"(?<![a-z0-9])" + re.escape(norm(mot)).replace("\\ ", " ") + r"s?", t)
+
+
+def problemes(signals, clients, limit=6):
+    """Problèmes concrets du moment : un événement perturbateur (grève, panne, canicule, hausse...) + un public touché.
+    Ce sont des POINTS DE DÉPART pour des idées « Artefact 3000 » : la règle repère, l'idée créative reste à inventer."""
+    par = defaultdict(list)
+    for s in signals:
+        if s["source"].startswith(CORE) or sensible(s["title"]):
+            continue
+        t = norm(f"{clean(s['title'])} {s.get('note', '')[:140]}")
+        evts = [m for m in DISRUPT if _mot(t, m)]
+        if not evts:
+            continue
+        for label, mots in PUBLICS:
+            if any(_mot(t, m) for m in mots):
+                par[label].append((s, evts))
+    out = []
+    for label, items in par.items():
+        items.sort(key=lambda x: _age(x[0]))
+        pubs = {publisher(x[0]) for x in items}
+        vus, lignes = set(), []
+        for s, evts in items:
+            cle = norm(clean(s["title"]))[:50]
+            if cle in vus:
+                continue
+            vus.add(cle)
+            lignes.append({"titre": clean(s["title"])[:150], "source": publisher(s), "url": s["url"], "age": s.get("age"), "evenement": evts[0]})
+            if len(lignes) >= 3:
+                break
+        texte = " ".join(l["titre"] for l in lignes)
+        out.append({"public": label, "items": lignes, "nb_medias": len(pubs), "clients": tag_clients(texte, clients)})
+    out.sort(key=lambda p: (-p["nb_medias"], -len(p["items"])))
+    return out[:limit]
+
+
 # ---------- 6. prompt à coller dans un outil de chat ----------
-PROMPT_HEAD = """Tu es l'assistant de veille d'un directeur de création en agence. Voici les signaux du jour repérés automatiquement (articles récents, pics, chiffres, frictions).
-À partir de ces seuls éléments, rédige 10 fiches « insight / rebond de marque » : mélange d'actualité chaude (environ 4) et de frictions ou contre-tendances (environ 6),
-sur des thèmes variés (pas plus de 3 sujets tech/IA ; au moins un food/lifestyle, un mode/design, un culture/musique, un travail/société, un conso/retail).
+PROMPT_HEAD = """Tu es l'assistant de veille d'une agence de publicité, « Artefact 3000 », dirigée par un directeur de création. Voici les signaux du jour repérés automatiquement (articles récents, pics, chiffres, frictions, problèmes concrets).
+À partir de ces seuls éléments, rédige 10 fiches en DEUX FAMILLES :
 
-Format de chaque fiche :
-N. Domaine : titre du signal
-- Le signal : ce qui se passe (fait précis tiré des signaux)
+A) 6 fiches « POUR LES CLIENTS » : un fait, une friction ou une contre-tendance utile à un ou plusieurs clients de l'agence (liste ci-dessous). Format :
+N. Domaine : titre
+- Clients concernés : noms pris dans la liste
+- Le signal : fait précis tiré des signaux
 - Le statut : Émergent / Contre-tendance / Friction d'actualité / Micro-niche / Saturation
-- La source : médias et liens des signaux utilisés
-- La preuve : un chiffre uniquement s'il figure dans les signaux (sinon omets cette ligne)
+- La source : médias et liens
+- La preuve : un chiffre seulement s'il figure dans les signaux (sinon omets la ligne)
 - L'insight : une phrase naturelle (comportement, tension, ce que les marques font encore)
-- L'angle d'activation : pour qui (secteurs) + message de marque rédigé, affichable tel quel
-- À vérifier : ce que tu supposes sans le voir dans les signaux
+- L'angle : pour qui + message de marque rédigé, affichable tel quel
+- À vérifier
 
-Règles : n'invente aucun chiffre, étude, institut ni source ; zéro marronnier déjà rincé (run clubs, matcha, quiet quitting classique) sauf contrecoup ; priorité aux frictions
-(agacement, saturation, rejet) ; privilégie les sujets confirmés par plusieurs sources ; au moins 6 sujets français ou européens ; français sobre, sans métaphore physique ni mot inventé ;
-les sujets sensibles (deuil, drame, crime, polémique clivante) ne reçoivent AUCUN angle : liste-les à part sous « Ça monte, ne pas rebondir ».
+B) 4 fiches « POUR LES GENS (Artefact 3000) » : ce que l'agence pourrait sortir en son nom pour les gens. Un problème réel que des gens rencontrent à cause d'un événement du moment (grève, blocage, canicule, hausse des prix, panne, réforme, examens...), résolu par une idée CRÉATIVE ET ORIGINALE, simple à réaliser vite. Ce peut être un outil, un objet, un affichage, un détournement, un service, un événement, un contenu : pas forcément numérique. Format :
+N. Titre
+- Public touché
+- Le problème : une phrase appuyée sur les signaux
+- L'idée : une à trois phrases concrètes
+- Le format : outil, affichage, objet, événement, contenu, détournement...
+- Effort estimé : léger (quelques jours) / moyen / lourd, à confirmer
+- Clients possibles : noms pris dans la liste, ou aucun
+- Limites : neutralité, droits, risques, ce qu'il ne faut pas promettre
+- Sources : médias et liens, et À vérifier
+
+Règles : n'invente aucun chiffre, étude, institut ni source ; zéro marronnier déjà rincé sauf contrecoup ; priorité aux frictions et aux problèmes pratiques ; privilégie les sujets confirmés par plusieurs sources et ceux qui concernent au moins un client ; français sobre, sans métaphore physique ni mot inventé.
+Pour les idées « Artefact 3000 » : NON PARTISANES (elles aident les gens, ne prennent jamais parti pour ou contre un mouvement, un gouvernement ou une entreprise), jamais sur un drame, un deuil ou une catastrophe, aucune donnée personnelle sensible, aucun effet chiffré promis.
+Les sujets sensibles (deuil, drame, crime, polémique clivante) ne reçoivent AUCUNE idée : liste-les à part sous « Ça monte, ne pas rebondir ». Pour les associations de la liste, un sujet grave n'est possible que si l'idée est respectueuse et utile (note « validation requise »).
 """
 
 
-def prompt(date, sujets, monte, chif, fric, lect):
-    L = [PROMPT_HEAD, f"DATE : {date}", "", "SUJETS REPÉRÉS PAR PLUSIEURS SOURCES :"]
+def prompt(date, sujets, monte, chif, fric, lect, probs, clients, contexte):
+    L = [PROMPT_HEAD, f"DATE : {date}", ""]
+    if clients:
+        L += ["CLIENTS DE L'AGENCE (nom : thèmes) :"] + [f"- {n} : {', '.join(m[:8])}" for n, m in clients] + [""]
+    if contexte:
+        L += ["CONTEXTE :", contexte, ""]
+    L += ["PROBLÈMES CONCRETS DU MOMENT (matière pour la famille B) :"]
+    for p in probs:
+        L.append(f"- {p['public']}" + (f"  [clients possibles : {', '.join(p['clients'])}]" if p["clients"] else ""))
+        L += [f"    · {i['titre']} ({i['source']}) {i['url']}" for i in p["items"]]
+    L += ["", "SUJETS REPÉRÉS PAR PLUSIEURS SOURCES :"]
     for s in sujets[:14]:
-        L.append(f"- {s['titre']} [{', '.join(s['medias'][:5])}]" + ("  (SENSIBLE)" if s["sensible"] else ""))
+        L.append(f"- {s['titre']} [{', '.join(s['medias'][:5])}]" + (f"  [clients : {', '.join(s['clients'])}]" if s["clients"] else "") + ("  (SENSIBLE)" if s["sensible"] else ""))
         for l in s["liens"][:3]:
             L.append(f"    · {l['label']} {l['url']}")
     L += ["", "ÇA MONTE (pics Wikipédia / Google Trends) :"]
     L += [f"- {m['sujet']} | {m['mesure']} | {m['pourquoi']}" + ("" if m["rebondable"] else "  (SENSIBLE)") for m in monte]
     L += ["", "CHIFFRES ET ÉTUDES (repris tels quels) :"] + [f"- {c['chiffre']} : {c['phrase']} ({c['source']}) {c['liens'][0]['url']}" for c in chif]
-    L += ["", "FRICTIONS :"] + [f"- {f['titre']} ({f['source']}) {f['url']}" for f in fric]
+    L += ["", "FRICTIONS :"] + [f"- {f['titre']} ({f['source']}) {f['url']}" + (f"  [clients : {', '.join(f['clients'])}]" if f["clients"] else "") for f in fric]
     L += ["", "LECTURES (newsletters, culture) :"] + [f"- {l['titre']} ({l['source']}) {l['url']}" for l in lect]
     return "\n".join(L)
 
 
 # ---------- assemblage ----------
-def build(signals, date):
+def build(signals, date, clients=None, contexte=""):
+    clients = clients or []
     groups = clusters(signals)
     sujets = []
     for g in groups:
@@ -1011,10 +1170,14 @@ def build(signals, date):
         if not members:
             continue
         sujets.append({"titre": clean(best["title"])[:140], "tags": g["tags"], "medias": g["pubs"], "nb": len(g["ids"]),
-                       "sensible": sensible(texte), "liens": [_lien(x) for x in members[:4]]})
+                       "sensible": sensible(texte), "clients": tag_clients(texte, clients), "liens": [_lien(x) for x in members[:4]]})
     monte, chif, fric, lect = ca_monte(signals, groups), chiffres(signals), frictions(signals), lectures(signals)
-    return {"mode": "auto", "fiches": [], "ca_monte": monte, "chiffres": chif, "sujets": sujets, "frictions": fric, "lectures": lect,
-            "prompt": prompt(date, sujets, monte, chif, fric, lect)}
+    for f in fric:
+        f["clients"] = tag_clients(f["titre"], clients)
+    probs = problemes(signals, clients)
+    return {"mode": "auto", "fiches": [], "ca_monte": monte, "chiffres": chif, "sujets": sujets, "frictions": fric, "lectures": lect, "problemes": probs,
+            "clients_liste": [n for n, _ in clients],
+            "prompt": prompt(date, sujets, monte, chif, fric, lect, probs, clients, contexte)}
 '''
 # <<END_AUTO_SRC>>
 
