@@ -201,7 +201,8 @@ def feeds(max_age_h=72, per_feed=3):
             desc = html.unescape(re.sub(r"<[^>]+>", " ", _txt(it, "description", "summary", "encoded", "content")))
             age = int((now - when).total_seconds() // 3600)
             out.append({"source": f["name"], "title": html.unescape(_txt(it, "title")), "url": link,
-                        "metric": f"il y a {age} h", "note": " ".join(desc.split())[:220], "age": age})
+                        "metric": f"il y a {age} h", "note": " ".join(desc.split())[:220], "age": age,
+                        "cat": "lecture" if f.get("max_age_h", max_age_h) > 72 else "actu"})
             n += 1
             if n >= f.get("n", per_feed):
                 break
@@ -394,12 +395,23 @@ def _mistral(user_msg, system, key):
 
 
 def _claude(user_msg, system, key):
-    body = {"model": os.environ.get("RADAR_CLAUDE_MODEL", "claude-sonnet-5-5"), "max_tokens": 8000,
+    body = {"model": os.environ.get("RADAR_CLAUDE_MODEL", "claude-sonnet-5-5"), "max_tokens": 12000,
             "system": system, "messages": [{"role": "user", "content": user_msg}]}
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(),
-                                 {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"})
-    with urllib.request.urlopen(req, timeout=240) as r:
-        return "".join(b.get("text", "") for b in json.load(r)["content"])
+    for i, wait in enumerate((0, 10, 40)):
+        time.sleep(wait)
+        req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(),
+                                     {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"})
+        try:
+            with urllib.request.urlopen(req, timeout=240) as r:
+                return "".join(b.get("text", "") for b in json.load(r)["content"])
+        except urllib.error.HTTPError as e:
+            if e.code not in (429, 500, 502, 503, 504, 529) or i == 2:
+                raise
+            print(f"[!] Claude : {e.code}, nouvel essai", file=sys.stderr)
+        except OSError:
+            if i == 2:
+                raise
+            print("[!] Claude : coupure, nouvel essai", file=sys.stderr)
 
 
 def call_llm(user_msg, system=None):
@@ -413,14 +425,15 @@ def call_llm(user_msg, system=None):
     }
     order = [k.strip() for k in (env("RADAR_ORDER") or "gemini,mistral,claude").split(",")]  # ex. RADAR_ORDER=mistral,gemini
     chain = [(makers[k][0], makers[k][2]) for k in order if k in makers and makers[k][1]]
-    alive = [c for c in chain if c[0] not in DEAD]
-    chain = alive or chain  # un fournisseur déjà tombé dans ce run est sauté, sauf s'il n'en reste aucun
     if not chain:
         sys.exit("Aucune clé (GEMINI_API_KEY, MISTRAL_API_KEY ou ANTHROPIC_API_KEY). Sinon lance avec --raw / --demo.")
+    chain = [c for c in chain if c[0] not in DEAD]  # un fournisseur déjà tombé dans ce run n'est pas réessayé
+    if not chain:
+        raise RuntimeError("tous les fournisseurs d'IA sont déjà tombés pendant ce run")
     err = None
     for i, (name, fn) in enumerate(chain):
         last = i == len(chain) - 1
-        patience, alts = ((20, 60, 120, 180), 3) if last else ((15, 45), 1)  # un secours existe : on n'insiste pas
+        patience, alts = ((15, 45, 90), 2) if last else ((15, 45), 1)  # un secours existe : on n'insiste pas
         try:
             return fn((patience, alts))
         except Exception as e:  # toute erreur d'un fournisseur (réseau, clé refusée, réponse inattendue) : on passe au suivant
@@ -605,29 +618,34 @@ def render(payload):
     print(f"Site : {OUT / 'index.html'}")
 
 
+def has_ai():
+    return any(_key(k) for k in ("GEMINI_API_KEY", "MISTRAL_API_KEY", "ANTHROPIC_API_KEY"))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--raw", action="store_true", help="signaux bruts, sans Claude")
+    ap.add_argument("--raw", action="store_true", help="signaux bruts, sans IA ni regroupement")
     ap.add_argument("--demo", action="store_true", help="fiches d'exemple hors ligne")
+    ap.add_argument("--sans-ia", action="store_true", help="édition automatique même si des clés d'API existent")
     ap.add_argument("--si-absent", action="store_true", help="ne rien faire si l'édition du jour est déjà publiée")
-    ap.add_argument("--monte", action="store_true", help="mise à jour de midi : seulement « Ça monte »")
+    ap.add_argument("--monte", action="store_true", help="mise à jour de midi : seulement « Ça monte » (avec IA) ou nouvelle édition automatique")
     a = ap.parse_args()
     now = dt.datetime.now().strftime("%d/%m/%Y %H:%M")
+    ai = has_ai() and not a.sans_ia
     if not (a.demo or a.raw):
-        print(f"Fournisseurs d'IA : {providers_line()}")
-        if not _key("MISTRAL_API_KEY"):
-            print("::warning::MISTRAL_API_KEY absente : aucun secours si Gemini est saturé (secret manquant ou non transmis par le workflow).")
+        print("Mode : " + (f"avec IA ({providers_line()})" if ai else "édition automatique, SANS IA ni clé d'API"))
     if a.demo:
         fiches = json.loads((HERE / "demo.json").read_text(encoding="utf-8"))
         return render({"mode": "demo", "generated": now, "fiches": fiches, "ca_monte": [], "chiffres": [], "feeds_ko": [], "signals": []})
+    today = f"{dt.date.today():%d/%m/%Y}"
     if a.si_absent and (OUT / "latest.json").exists():
         cur = json.loads((OUT / "latest.json").read_text(encoding="utf-8"))
-        if cur.get("mode") == "live" and not cur.get("stale") and cur.get("generated", "")[:10] == f"{dt.date.today():%d/%m/%Y}":
+        if cur.get("mode") in ("live", "auto") and not cur.get("stale") and cur.get("generated", "")[:10] == today and (cur["mode"] == "auto") == (not ai):
             return print("Édition du jour déjà publiée : rien à faire.")
     prev = None
-    if a.monte and (OUT / "latest.json").exists():
+    if a.monte and ai and (OUT / "latest.json").exists():
         prev = json.loads((OUT / "latest.json").read_text(encoding="utf-8"))
-        if prev.get("mode") != "live" or prev.get("generated", "")[:10] != f"{dt.date.today():%d/%m/%Y}":
+        if prev.get("mode") != "live" or prev.get("generated", "")[:10] != today:
             prev = None  # pas d'édition du jour : on lance l'édition complète
     signals = collect()
     print(f"{len(signals)} signaux collectés : " + ", ".join(sorted({x['source'] for x in signals})))
@@ -635,21 +653,29 @@ def main():
         sys.exit("Aucun signal : vérifie ta connexion / les accès réseau.")
     notify(signals)
     if prev:
-        prev.update({"ca_monte": synthesize_monte(signals), "generated": now, "feeds_ko": FEEDS_KO, "signals": signals})
-        return render(prev)
-    try:
-        fiches, monte, chiffres = ([], [], []) if a.raw else synthesize(signals)
-    except Exception as e:
-        print(f"::error::Génération impossible aujourd'hui ({type(e).__name__}: {str(e)[:300]} | {getattr(e, 'url', '').split('?')[0]})", file=sys.stderr)
-        p = OUT / "latest.json"
-        old = json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
-        if old and old.get("fiches"):
-            old.update({"stale": f"La génération du {now} a échoué (modèle indisponible ou quota atteint) : édition précédente affichée. Fournisseurs d'IA : {providers_line()}.",
-                        "feeds_ko": FEEDS_KO, "signals": signals})
-            return render(old)
-        fiches, monte, chiffres = [], [], []
-    render({"mode": "raw" if a.raw else "live", "generated": now, "fiches": fiches, "ca_monte": monte, "chiffres": chiffres,
-            "feeds_ko": FEEDS_KO, "signals": signals})
+        try:
+            prev.update({"ca_monte": synthesize_monte(signals), "generated": now, "feeds_ko": FEEDS_KO, "signals": signals})
+            return render(prev)
+        except Exception as e:
+            print(f"::warning::Mise à jour « Ça monte » par l'IA impossible ({type(e).__name__}) : l'édition du matin est conservée.", file=sys.stderr)
+            return
+    if a.raw:
+        return render({"mode": "raw", "generated": now, "fiches": [], "ca_monte": [], "chiffres": [], "feeds_ko": FEEDS_KO, "signals": signals})
+    payload = None
+    if ai:
+        try:
+            fiches, monte, chiffres = synthesize(signals)
+            payload = {"mode": "live", "generated": now, "fiches": fiches, "ca_monte": monte, "chiffres": chiffres}
+        except Exception as e:
+            print(f"::warning::L'IA n'a pas répondu ({type(e).__name__}: {str(e)[:200]}) : édition automatique à la place.", file=sys.stderr)
+    if payload is None:
+        import auto
+        payload = auto.build(signals, now)
+        payload["generated"] = now
+        if ai:
+            payload["stale"] = "L'IA n'a pas répondu ce matin : édition automatique (sans rédaction de fiches) affichée à la place."
+    payload.update({"feeds_ko": FEEDS_KO, "signals": signals})
+    render(payload)
 
 
 if __name__ == "__main__":
