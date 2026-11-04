@@ -373,16 +373,21 @@ def _gemini(user_msg, system, gem, PATIENCE, ALTS):
     raise err
 
 
+_MISTRAL_LAST = [0.0]
+
+
 def _mistral(user_msg, system, key):
     models = [m.strip() for m in (os.environ.get("RADAR_MISTRAL_MODEL") or "mistral-small-latest,open-mistral-nemo").split(",") if m.strip()]
     err = None
     for model in models:  # un modèle absent de l'offre (403/404) : on essaie le suivant
         body = {"model": model, "temperature": 0.4, "max_tokens": 9000, "response_format": {"type": "json_object"},
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user_msg}]}
-        for i, wait in enumerate((0, 15, 45)):
-            time.sleep(wait)
+        for i, wait in enumerate((0, 25, 65, 65)):
+            gap = 50 - (time.time() - _MISTRAL_LAST[0])  # offre gratuite : limite de débit par minute, on espace les appels
+            time.sleep(max(wait, gap if gap > 0 else 0))
             req = urllib.request.Request("https://api.mistral.ai/v1/chat/completions", json.dumps(body).encode(),
                                          {"content-type": "application/json", "authorization": f"Bearer {key}"})
+            _MISTRAL_LAST[0] = time.time()
             try:
                 with urllib.request.urlopen(req, timeout=300) as r:
                     return json.load(r)["choices"][0]["message"]["content"]
@@ -391,12 +396,15 @@ def _mistral(user_msg, system, key):
                 if e.code in (403, 404):
                     print(f"[!] Mistral : {model} non disponible dans ton offre ({e.code})", file=sys.stderr)
                     break
-                if e.code not in (429, 500, 502, 503, 504) or i == 2:
+                if e.code not in (429, 500, 502, 503, 504) or i == 3:
                     raise
-                print(f"[!] Mistral : {e.code}, nouvel essai", file=sys.stderr)
+                ra = e.headers.get("Retry-After") if e.headers else None
+                if ra and ra.isdigit():
+                    _MISTRAL_LAST[0] = time.time() + min(int(ra), 90) - 50  # on respecte le délai demandé par le service
+                print(f"[!] Mistral : {e.code}, nouvel essai après une pause", file=sys.stderr)
             except OSError as e:
                 err = e
-                if i == 2:
+                if i == 3:
                     raise
                 print("[!] Mistral : coupure, nouvel essai", file=sys.stderr)
     raise err
@@ -529,6 +537,15 @@ def _lines(signals):
     return [f"[{s['id']}] ({s['source']}) {s['title'][:140]} | {s['metric']} {('| ' + s['note'][:130]) if s.get('note') else ''}" for s in signals]
 
 
+def _lines_courtes(signals):
+    """Version compacte pour la sélection : titre + source (+ mesure pour les pics). Environ trois fois moins de texte."""
+    out = []
+    for s in signals:
+        mesure = f" | {s['metric']}" if s["source"].startswith(("Wikip", "Google Trends")) else ""
+        out.append(f"[{s['id']}] ({s['source']}) {s['title'][:115]}{mesure}")
+    return out
+
+
 def _json(prompt, system):
     for attempt in (1, 2, 3):
         text = call_llm(prompt, system)
@@ -564,7 +581,7 @@ def synthesize(signals):
     # passe 1 : sélection des sujets (réponse courte, ids seulement)
     sel = None
     try:
-        sel = _json(head + "SIGNAUX :\n" + "\n".join(_lines(signals)), SELECT)
+        sel = _json(head + "SIGNAUX :\n" + "\n".join(_lines_courtes(signals)), SELECT)
         ids = {i for k in ("fiches", "ca_monte", "chiffres") for it in sel.get(k, []) for i in it.get("signal_ids", []) if i in by_id}
         if len(sel.get("fiches", [])) < 5 or not ids:
             sel = None
@@ -691,13 +708,6 @@ def main():
             payload["stale"] = "L'IA n'a pas répondu ce matin : édition automatique (sans rédaction de fiches) affichée à la place."
     payload.update({"feeds_ko": FEEDS_KO, "signals": signals})
     render(payload)
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except urllib.error.HTTPError as e:  # erreur API lisible dans les logs
-        sys.exit(f"ERREUR API {e.code} sur {e.url.split('?')[0]} : {e.read().decode(errors='replace')[:600]}")
 
 
 # <<AUTO_SRC>>
@@ -963,3 +973,10 @@ def build(signals, date):
             "prompt": prompt(date, sujets, monte, chif, fric, lect)}
 '''
 # <<END_AUTO_SRC>>
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except urllib.error.HTTPError as e:  # erreur API lisible dans les logs
+        sys.exit(f"ERREUR API {e.code} sur {e.url.split('?')[0]} : {e.read().decode(errors='replace')[:600]}")
