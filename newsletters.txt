@@ -1,0 +1,54 @@
+# Newsletters suivies par RADAR : une par ligne, « Nom | adresse du site ou de la newsletter ».
+# RADAR trouve le flux tout seul (Substack, Ghost, WordPress...). Une ligne qui commence par # est ignorée.
+# Newsletter reçue seulement par e-mail ? Crée un flux sur kill-the-newsletter.com et colle ici l'adresse du flux qu'il te donne.
+
+# --- Tech, satire, culture web (EN)
+Platformer | https://www.platformer.news
+Blood in the Machine | https://www.bloodinthemachine.com
+Where's Your Ed At | https://www.wheresyoured.at
+Tedium | https://tedium.co
+Dirt | https://www.dirt.fyi
+Digital Native | https://www.digitalnative.tech
+Read Max | https://maxread.substack.com
+# --- Culture, internet, idées, prospective (EN)
+Today in Tabs | https://www.todayintabs.com
+The Honest Broker | https://www.honest-broker.com
+Exponential View | https://www.exponentialview.co
+Why Is This Interesting? | https://www.whyisthisinteresting.com
+Web Curios | https://www.webcurios.co.uk
+Pluralistic | https://pluralistic.net
+Numlock News | https://www.numlock.com
+The Pudding | https://pudding.cool
+# --- Création, design, curation (EN)
+Sidebar | https://sidebar.io
+The Creative Independent | https://thecreativeindependent.com
+Colossal | https://www.thisiscolossal.com
+NextDraft | https://nextdraft.com
+Semafor | https://www.semafor.com
+# --- Reportage, société, curation (EN)
+Defector | https://defector.com
+Nieman Storyboard | https://niemanstoryboard.org
+Kottke.org | https://kottke.org
+Dense Discovery | https://www.densediscovery.com
+Sentiers | https://sentiers.media
+The Ruffian | https://ianleslie.substack.com
+Blackbird Spyplane | https://blackbirdspyplane.com
+The Ankler | https://theankler.com
+# --- FR
+Le Pavé Numérique | https://lepavenumerique.substack.com
+Les Jours | https://lesjours.fr
+Courrier international | https://www.courrierinternational.com
+
+# --- À compléter avec les adresses exactes (je ne les ai pas vérifiées) :
+# So Good Morning | https://...
+# Internet Princess | https://...
+# Protein | https://...
+# The Future Party | https://...
+# The Profile | https://...
+# Links I Would Gchat You If We Were Friends | https://...
+# TechTrash | https://...
+# Pavé Numérique | https://...
+# Internet Faste | https://...
+# In Bed With Tech | https://...
+# 5 bonnes histoires | https://...
+# Time to Signoff | https://...

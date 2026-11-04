@@ -140,18 +140,36 @@ FEEDS_KO = []
 def feeds(max_age_h=72, per_feed=3):
     """Articles récents des flux de feeds.json (modifiable). Les flux en panne sont ignorés."""
     cfg = json.loads((HERE / "feeds.json").read_text(encoding="utf-8"))
+    nl = HERE / "newsletters.txt"  # une newsletter par ligne : « Nom | https://adresse »
+    if nl.exists():
+        for line in nl.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "|" in line:
+                name, url = (x.strip() for x in line.split("|", 1))
+                if url.startswith("http"):
+                    cfg.append({"name": name, "home": url, "n": 2, "max_age_h": 240})
     now = dt.datetime.now(dt.timezone.utc)
     out, ok, ko = [], [], []
 
+    def parse(url):
+        root = ET.fromstring(get(url, timeout=15))
+        if not any(e.tag.split("}")[-1] in ("item", "entry") for e in root.iter()):
+            raise ValueError("flux vide")
+        return root
+
     def load(f):
-        try:
-            return ET.fromstring(get(f["url"], timeout=15))
-        except Exception:
-            pass
-        if f.get("site"):  # flux bloqué : on passe par l'index Google Actualités du site
-            q = urllib.parse.quote_plus(f"site:{f['site']} when:14d")
+        home = (f.get("home") or "").rstrip("/")
+        cands = [f["url"]] if f.get("url") else [home + p for p in ("/feed", "/rss/", "/rss", "/feed.xml", "/rss.xml", "/atom.xml", "/index.xml")]
+        for u in cands:  # pour une adresse d'accueil : on essaie les chemins de flux usuels (Substack, Ghost, WordPress...)
             try:
-                return ET.fromstring(get(f"https://news.google.com/rss/search?q={q}&hl=fr&gl=FR&ceid=FR:fr", timeout=15))
+                return parse(u)
+            except Exception:
+                pass
+        site = f.get("site") or (urllib.parse.urlparse(home).netloc.removeprefix("www.") if home else "")
+        if site:  # flux bloqué ou introuvable : on passe par l'index Google Actualités du site
+            q = urllib.parse.quote_plus(f"site:{site} when:14d")
+            try:
+                return parse(f"https://news.google.com/rss/search?q={q}&hl=fr&gl=FR&ceid=FR:fr")
             except Exception:
                 pass
         return None
