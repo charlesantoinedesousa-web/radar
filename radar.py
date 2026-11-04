@@ -209,6 +209,30 @@ def feeds(max_age_h=72, per_feed=3):
     return sorted(out, key=lambda x: x["age"])
 
 
+CORE = ("Wikip", "Google Trends", "Google Actualités FR", "Hacker News")  # sources « ça monte » : toujours gardées en entier
+
+
+def _plafonne(signals, cap):
+    """Au-delà du plafond, on garde les sources « ça monte » en entier, puis on répartit le reste à tour de rôle entre les autres sources
+    (le plus récent de chacune d'abord) : aucune newsletter n'est évincée parce qu'elle publie moins souvent."""
+    if len(signals) <= cap:
+        return signals
+    core = [x for x in signals if x["source"].startswith(CORE)]
+    groups = {}
+    for x in signals:
+        if not x["source"].startswith(CORE):
+            groups.setdefault(x["source"], []).append(x)
+    for g in groups.values():
+        g.sort(key=lambda x: x.get("age", 0))
+    out, i = list(core), 0
+    while len(out) < cap and any(i < len(g) for g in groups.values()):
+        for g in groups.values():
+            if i < len(g) and len(out) < cap:
+                out.append(g[i])
+        i += 1
+    return out
+
+
 def collect():
     signals = []
     for fn, label in [(wikipedia_spikes, "wikipedia"), (google_trends, "google_trends"),
@@ -218,7 +242,7 @@ def collect():
                       (lambda: google_trends("BR", 6), "trends_br"),
                       (google_news, "google_news"), (hacker_news, "hacker_news"), (feeds, "flux")]:
         signals += safe(fn, label)
-    signals = signals[:400]
+    signals = _plafonne(signals, 420)
     for i, s in enumerate(signals):
         s["id"] = i
     return signals

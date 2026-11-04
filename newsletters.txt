@@ -1,54 +1,75 @@
 # Newsletters suivies par RADAR : une par ligne, « Nom | adresse du site ou de la newsletter ».
 # RADAR trouve le flux tout seul (Substack, Ghost, WordPress...). Une ligne qui commence par # est ignorée.
 # Newsletter reçue seulement par e-mail ? Crée un flux sur kill-the-newsletter.com et colle ici l'adresse du flux qu'il te donne.
+# Source : ton tableau selection_newsletters.xlsx (adresses d'accueil, pas les pages d'inscription).
 
-# --- Tech, satire, culture web (EN)
-Platformer | https://www.platformer.news
-Blood in the Machine | https://www.bloodinthemachine.com
-Where's Your Ed At | https://www.wheresyoured.at
-Tedium | https://tedium.co
-Dirt | https://www.dirt.fyi
-Digital Native | https://www.digitalnative.tech
-Read Max | https://maxread.substack.com
-# --- Culture, internet, idées, prospective (EN)
+# --- Français
+Le Pavé Numérique | https://lepavenumerique.substack.com
+Society | https://www.society.fr
+Les Jours | https://lesjours.fr
+Médianes – Les 10 liens | https://medianes.org
+URBANIA | https://urbania.ca
+Basta! | https://basta.media
+Le 1 | https://le1hebdo.fr
+Courrier international | https://www.courrierinternational.com
+So Good Stories (So Good Morning) | https://www.sogoodstories.com
+Time To Sign Off (TTSO) | https://www.ttso.fr
+Brief.me | https://www.brief.me
+Vert | https://vert.eco
+Hugo Décrypte | https://hugodecrypte.com
+Blast | https://www.blast-info.fr
+Arrêt sur images | https://www.arretsurimages.net
+La Déferlante | https://revueladeferlante.fr
+ActuaLitté | https://actualitte.com
+Un Jour en Plus | https://www.unjourenplus.fr
+Les Surligneurs | https://lessurligneurs.eu
+
+# --- Anglais (culture internet, idées, création, tech)
+Garbage Day | https://www.garbageday.email
 Today in Tabs | https://www.todayintabs.com
+Internet Princess | https://internetprincess.substack.com
+Embedded | https://embedded.substack.com
+Culture Study | https://annehelen.substack.com
 The Honest Broker | https://www.honest-broker.com
+Links I Would Gchat You | https://caitlindewey.substack.com
 Exponential View | https://www.exponentialview.co
-Why Is This Interesting? | https://www.whyisthisinteresting.com
-Web Curios | https://www.webcurios.co.uk
-Pluralistic | https://pluralistic.net
-Numlock News | https://www.numlock.com
+Protein | https://protein.xyz
+The Future Party | https://futureparty.com
+The Profile | https://theprofile.substack.com
+Why Is This Interesting? | https://whyisthisinteresting.substack.com
+Web Curios | https://webcurios.co.uk
+Tedium | https://tedium.co
+Blackbird Spyplane | https://www.blackbirdspyplane.com
+Dense Discovery | https://www.densediscovery.com
+NextDraft | https://nextdraft.com
+The Optimist Daily | https://www.optimistdaily.com
+It's Nice That | https://www.itsnicethat.com
+Creative Boom | https://www.creativeboom.com
 The Pudding | https://pudding.cool
-# --- Création, design, curation (EN)
 Sidebar | https://sidebar.io
 The Creative Independent | https://thecreativeindependent.com
 Colossal | https://www.thisiscolossal.com
-NextDraft | https://nextdraft.com
-Semafor | https://www.semafor.com
-# --- Reportage, société, curation (EN)
+Numlock News | https://numlock.com
+404 Media | https://www.404media.co
+Rest of World | https://restofworld.org
+Platformer | https://www.platformer.news
+Pluralistic | https://pluralistic.net
+
+# --- Anglais (ajoutées avant le tableur)
+Blood in the Machine | https://www.bloodinthemachine.com
+Where's Your Ed At | https://www.wheresyoured.at
+Dirt | https://www.dirt.fyi
+Digital Native | https://www.digitalnative.tech
+Read Max | https://maxread.substack.com
 Defector | https://defector.com
 Nieman Storyboard | https://niemanstoryboard.org
 Kottke.org | https://kottke.org
-Dense Discovery | https://www.densediscovery.com
 Sentiers | https://sentiers.media
 The Ruffian | https://ianleslie.substack.com
-Blackbird Spyplane | https://blackbirdspyplane.com
 The Ankler | https://theankler.com
-# --- FR
-Le Pavé Numérique | https://lepavenumerique.substack.com
-Les Jours | https://lesjours.fr
-Courrier international | https://www.courrierinternational.com
 
-# --- À compléter avec les adresses exactes (je ne les ai pas vérifiées) :
-# So Good Morning | https://...
-# Internet Princess | https://...
-# Protein | https://...
-# The Future Party | https://...
-# The Profile | https://...
-# Links I Would Gchat You If We Were Friends | https://...
+# --- À compléter si tu as les adresses : TechTrash, Internet Faste, In Bed With Tech, 5 bonnes histoires
 # TechTrash | https://...
-# Pavé Numérique | https://...
 # Internet Faste | https://...
 # In Bed With Tech | https://...
 # 5 bonnes histoires | https://...
-# Time to Signoff | https://...
