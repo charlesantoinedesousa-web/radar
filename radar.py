@@ -8,7 +8,7 @@ Usage:
 Env: GEMINI_API_KEY (gratuit) ou ANTHROPIC_API_KEY, RADAR_MODEL,
      RADAR_WEBHOOK (Slack/Discord/Teams-compatible, alerte sur les pics), RADAR_CONTACT
 """
-import argparse, datetime as dt, threading, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
+import argparse, types, datetime as dt, threading, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -374,24 +374,32 @@ def _gemini(user_msg, system, gem, PATIENCE, ALTS):
 
 
 def _mistral(user_msg, system, key):
-    body = {"model": os.environ.get("RADAR_MISTRAL_MODEL", "mistral-large-latest"), "temperature": 0.4, "max_tokens": 9000,
-            "response_format": {"type": "json_object"},
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user_msg}]}
-    for i, wait in enumerate((0, 15, 45, 90)):
-        time.sleep(wait)
-        req = urllib.request.Request("https://api.mistral.ai/v1/chat/completions", json.dumps(body).encode(),
-                                     {"content-type": "application/json", "authorization": f"Bearer {key}"})
-        try:
-            with urllib.request.urlopen(req, timeout=300) as r:
-                return json.load(r)["choices"][0]["message"]["content"]
-        except urllib.error.HTTPError as e:
-            if e.code not in (429, 500, 502, 503, 504) or i == 3:
-                raise
-            print(f"[!] Mistral : {e.code}, nouvel essai", file=sys.stderr)
-        except OSError:
-            if i == 3:
-                raise
-            print("[!] Mistral : coupure, nouvel essai", file=sys.stderr)
+    models = [m.strip() for m in (os.environ.get("RADAR_MISTRAL_MODEL") or "mistral-small-latest,open-mistral-nemo").split(",") if m.strip()]
+    err = None
+    for model in models:  # un modèle absent de l'offre (403/404) : on essaie le suivant
+        body = {"model": model, "temperature": 0.4, "max_tokens": 9000, "response_format": {"type": "json_object"},
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user_msg}]}
+        for i, wait in enumerate((0, 15, 45)):
+            time.sleep(wait)
+            req = urllib.request.Request("https://api.mistral.ai/v1/chat/completions", json.dumps(body).encode(),
+                                         {"content-type": "application/json", "authorization": f"Bearer {key}"})
+            try:
+                with urllib.request.urlopen(req, timeout=300) as r:
+                    return json.load(r)["choices"][0]["message"]["content"]
+            except urllib.error.HTTPError as e:
+                err = e
+                if e.code in (403, 404):
+                    print(f"[!] Mistral : {model} non disponible dans ton offre ({e.code})", file=sys.stderr)
+                    break
+                if e.code not in (429, 500, 502, 503, 504) or i == 2:
+                    raise
+                print(f"[!] Mistral : {e.code}, nouvel essai", file=sys.stderr)
+            except OSError as e:
+                err = e
+                if i == 2:
+                    raise
+                print("[!] Mistral : coupure, nouvel essai", file=sys.stderr)
+    raise err
 
 
 def _claude(user_msg, system, key):
@@ -618,6 +626,13 @@ def render(payload):
     print(f"Site : {OUT / 'index.html'}")
 
 
+def _auto():
+    """Module de l'édition automatique, intégré à ce fichier (aucun fichier à ajouter à côté)."""
+    mod = types.ModuleType("auto")
+    exec(compile(_AUTO_SRC, "auto(embarqué)", "exec"), mod.__dict__)
+    return mod
+
+
 def has_ai():
     return any(_key(k) for k in ("GEMINI_API_KEY", "MISTRAL_API_KEY", "ANTHROPIC_API_KEY"))
 
@@ -669,7 +684,7 @@ def main():
         except Exception as e:
             print(f"::warning::L'IA n'a pas répondu ({type(e).__name__}: {str(e)[:200]}) : édition automatique à la place.", file=sys.stderr)
     if payload is None:
-        import auto
+        auto = _auto()
         payload = auto.build(signals, now)
         payload["generated"] = now
         if ai:
@@ -683,3 +698,268 @@ if __name__ == "__main__":
         main()
     except urllib.error.HTTPError as e:  # erreur API lisible dans les logs
         sys.exit(f"ERREUR API {e.code} sur {e.url.split('?')[0]} : {e.read().decode(errors='replace')[:600]}")
+
+
+# <<AUTO_SRC>>
+_AUTO_SRC = r'''"""Édition automatique de RADAR, SANS modèle de langage ni clé d'API.
+
+Tout est calculé par des règles simples et vérifiables :
+  - regroupement des articles qui parlent du même sujet (mots rares en commun),
+  - « ça monte » = pics Wikipédia / Google Trends, avec le titre d'actualité le plus proche,
+  - chiffres et sondages extraits des titres (jamais reformulés),
+  - frictions repérées par un lexique (ras-le-bol, boycott, backlash, fatigue...),
+  - lectures de la semaine (newsletters et sites culture),
+  - un prompt prêt à coller dans Claude / Gemini / ChatGPT pour rédiger les fiches à la main.
+Aucune information n'est inventée : chaque ligne vient d'un article collecté et garde son lien.
+"""
+import math
+import re
+import unicodedata
+from collections import Counter, defaultdict
+
+SENSIBLE = re.compile(r"\b(mort|morts|d[ée]c[èe]s|d[ée]c[ée]d[ée]|meurt|disparition d[eu]|hommage national|deuil|attentat|attaque|fusillade|crash|accident|tu[ée]s?|victimes?|suicide|guerre|massacre|incendie meurtrier|piratage|cyberattaque|hack)\b", re.I)
+
+STOP = set("""
+le la les un une des de du et en au aux pour par sur dans avec sans ce ces cet cette qui que quoi dont est sont ont ete etre plus moins tres tout tous toute toutes comme mais ainsi apres avant entre vers chez son ses leur leurs nous vous ils elles elle fait faire selon alors aussi encore depuis pendant contre sous cela celui ceux celles dit dire veut veulent peut peuvent doit doivent pourquoi comment quand ici deja bien tres autre autres meme memes chaque
+the and for with from that this have has are was were will not but you your about into over after before more less their they them than what when who how why new says said just like could would should there here been being also very much many
+monde jour jours video videos photos photo direct live info infos actu news article articles france francais francaise paris annee annees semaine mois ans apres dernier derniere premier premiere nouveau nouvelle nouveaux nouvelles grand grande grands grandes
+""".split())
+
+FRICTION = ["ras-le-bol", "ras le bol", "exasp", "boycott", "polémique", "polemique", "bad buzz", "backlash", "rejet", "fatigue", "saturation",
+            "colère", "colere", "dénonc", "denonc", "arnaque", "frais cachés", "frais caches", "enshittification", "slop", "intrus", "lassitude",
+            "ne supportent plus", "n'en peuvent plus", "indignation", "scandale", "revolt", "fed up", "sick of", "tired of", "pushback",
+            "outrage", "irrité", "irrite", "méfiance", "mefiance", "refus", "contestation", "critiqué", "critique "]
+
+NOMBRE = re.compile(r"(\d[\d\s.,]*\s?(?:%|pour cent|pc\b)|\b\d{1,2}\s?(?:sur|out of|in)\s?\d{1,2}\b|\b\d[\d\s.,]*\s?(?:millions?|milliards?|billions?)\b)", re.I)
+FR_WORDS = {"le", "la", "les", "des", "du", "une", "est", "sont", "pour", "dans", "sur", "avec", "qui", "que", "au", "aux", "en", "et"}
+CORE = ("Wikip", "Google Trends")
+
+
+def norm(s):
+    s = unicodedata.normalize("NFKD", (s or "").lower())
+    return "".join(c for c in s if not unicodedata.combining(c))
+
+
+def clean(title):
+    """Titre sans le nom du média collé à la fin (« … - Le Monde »)."""
+    return re.sub(r"\s[-–|]\s[^-–|]{2,40}$", "", (title or "").strip())
+
+
+def publisher(s):
+    """Vrai média d'un article : pour Google Actualités, c'est le suffixe du titre."""
+    if s["source"].startswith(("GActu", "Google Actualités")):
+        m = re.search(r"\s[-–|]\s([^-–|]{2,40})$", s["title"])
+        return m.group(1).strip() if m else "Google Actualités"
+    if s["source"].startswith("Google Trends"):
+        return "Google Trends"
+    if s["source"].startswith("Wikip"):
+        return "Wikipédia"
+    return s["source"]
+
+
+def kw(title):
+    return {w for w in re.findall(r"[a-z]{4,}", norm(clean(title))) if w not in STOP}
+
+
+def _age(s, default=24):
+    """Âge en heures ; les sources sans date (Google Actualités, pics) sont supposées récentes."""
+    a = s.get("age")
+    return default if a is None else a
+
+
+def is_fr(text):
+    toks = re.findall(r"[a-zàâçéèêëîïôûùüÿœ']+", (text or "").lower())
+    return sum(t in FR_WORDS for t in toks) >= 2
+
+
+def sensible(text):
+    return bool(SENSIBLE.search(text or ""))
+
+
+# ---------- 1. regroupement par sujet ----------
+def clusters(signals):
+    n = len(signals)
+    K = [kw(s["title"]) for s in signals]
+    df = Counter(w for k in K for w in k)
+    idf = {w: math.log(n / c) for w, c in df.items()}
+    index = defaultdict(list)
+    for i, k in enumerate(K):
+        for w in k:
+            if 2 <= df[w] <= max(8, n // 40):  # mots assez rares pour désigner un sujet
+                index[w].append(i)
+    score = defaultdict(float)
+    for w, ids in index.items():
+        for a in range(len(ids)):
+            for b in range(a + 1, len(ids)):
+                score[(ids[a], ids[b])] += idf[w]
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for (i, j), sc in score.items():
+        if sc >= 6.0:  # au moins deux mots rares en commun
+            parent[find(i)] = find(j)
+    groups = defaultdict(list)
+    for i in range(n):
+        groups[find(i)].append(i)
+    out = []
+    for ids in groups.values():
+        if not 2 <= len(ids) <= 30:
+            continue
+        pubs = {publisher(signals[i]) for i in ids}
+        if len(pubs) < 2:
+            continue
+        words = Counter(w for i in ids for w in K[i])
+        top = [w for w, _ in sorted(words.items(), key=lambda x: -(x[1] * idf.get(x[0], 0)))[:3]]
+        best = max(ids, key=lambda i: sum(idf.get(w, 0) for w in K[i] & set(top)) - 0.01 * _age(signals[i]))
+        spike = any(signals[i]["source"].startswith(CORE) for i in ids)
+        fresh = min(_age(signals[i]) for i in ids)
+        sc = len(pubs) * 3 + min(len(ids), 8) + (3 if fresh <= 24 else 0) + (4 if spike else 0)
+        out.append({"ids": ids, "pubs": sorted(pubs), "tags": top, "best": best, "score": sc, "spike": spike})
+    return sorted(out, key=lambda c: -c["score"])
+
+
+def _lien(s):
+    age = f", {s['metric']}" if s.get("age") is not None else ""
+    return {"label": f"{clean(s['title'])[:80]} ({publisher(s)}{age})", "url": s["url"]}
+
+
+# ---------- 2. ça monte ----------
+def ca_monte(signals, groups):
+    where = {}
+    for g in groups:
+        for i in g["ids"]:
+            where[i] = g
+    picks = []
+    for prefix, k in (("Wikipédia FR", 4), ("Google Trends FR", 3), ("Wikipédia EN", 1), ("Google Trends US", 1), ("Google Trends GB", 1)):
+        picks += [i for i, s in enumerate(signals) if s["source"] == prefix][:k]
+    out = []
+    for i in picks:
+        s = signals[i]
+        g = where.get(i)
+        related = [signals[j] for j in (g["ids"] if g else []) if j != i and not signals[j]["source"].startswith(CORE)]
+        mots = kw(s["title"])
+        if mots:  # rapprochement direct : tous les mots du pic figurent dans le titre d'un article
+            deja = {id(x) for x in related}
+            related += [x for x in signals if not x["source"].startswith(CORE) and id(x) not in deja and mots <= kw(x["title"])]
+        related.sort(key=_age)
+        head = related[0] if related else None
+        pourquoi = f"Titre associé : « {clean(head['title'])[:140]} » ({publisher(head)})" if head else "cause non identifiée dans les signaux"
+        texte = f"{s['title']} {head['title'] if head else ''}"
+        rebond = not sensible(texte)
+        out.append({"sujet": s["title"], "pourquoi": pourquoi, "mesure": s.get("metric", ""), "rebondable": rebond,
+                    "precaution": "" if rebond else "Sujet sensible : ne pas rebondir.", "idee": None,
+                    "liens": [_lien(s)] + [_lien(x) for x in related[:2]]})
+    return out
+
+
+# ---------- 3. chiffres ----------
+def chiffres(signals, limit=10):
+    seen, out = set(), []
+    for s in signals:
+        if s["source"].startswith(CORE) or s["source"] == "Hacker News":
+            continue
+        for texte in (clean(s["title"]), s.get("note", "")):
+            m = NOMBRE.search(texte or "")
+            if m and not sensible(texte):
+                key = norm(clean(s["title"]))[:60]
+                if key in seen:
+                    break
+                seen.add(key)
+                out.append({"chiffre": m.group(1).strip(), "phrase": (clean(s["title"]) if texte == clean(s["title"]) else texte)[:170],
+                            "source": publisher(s), "liens": [_lien(s)], "fr": is_fr(s["title"])})
+                break
+    out.sort(key=lambda c: (not c["fr"], 0))
+    return [{k: v for k, v in c.items() if k != "fr"} for c in out[:limit]]
+
+
+# ---------- 4. frictions ----------
+def frictions(signals, limit=14):
+    out, seen = [], set()
+    for s in signals:
+        if s["source"].startswith(CORE):
+            continue
+        t = norm(f"{clean(s['title'])} {s.get('note', '')[:120]}")
+        mot = next((m for m in FRICTION if norm(m) in t), None)
+        if mot and not sensible(s["title"]):
+            key = norm(clean(s["title"]))[:50]
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({"titre": clean(s["title"])[:150], "source": publisher(s), "url": s["url"], "age": s.get("age"), "mot": mot.strip()})
+    out.sort(key=lambda x: (x["age"] is None, x["age"] or 0))
+    return out[:limit]
+
+
+# ---------- 5. lectures (newsletters, culture) ----------
+def lectures(signals, limit=30):
+    by = defaultdict(list)
+    for s in signals:
+        if s.get("cat") == "lecture":
+            by[s["source"]].append(s)
+    out = []
+    for src, items in by.items():
+        for s in sorted(items, key=lambda x: _age(x, 999))[:1]:
+            out.append({"source": src, "titre": clean(s["title"])[:150], "url": s["url"], "age": s.get("age"), "note": (s.get("note") or "")[:160]})
+    out.sort(key=lambda x: (x["age"] is None, x["age"] or 0))
+    return out[:limit]
+
+
+# ---------- 6. prompt à coller dans un outil de chat ----------
+PROMPT_HEAD = """Tu es l'assistant de veille d'un directeur de création en agence. Voici les signaux du jour repérés automatiquement (articles récents, pics, chiffres, frictions).
+À partir de ces seuls éléments, rédige 10 fiches « insight / rebond de marque » : mélange d'actualité chaude (environ 4) et de frictions ou contre-tendances (environ 6),
+sur des thèmes variés (pas plus de 3 sujets tech/IA ; au moins un food/lifestyle, un mode/design, un culture/musique, un travail/société, un conso/retail).
+
+Format de chaque fiche :
+N. Domaine : titre du signal
+- Le signal : ce qui se passe (fait précis tiré des signaux)
+- Le statut : Émergent / Contre-tendance / Friction d'actualité / Micro-niche / Saturation
+- La source : médias et liens des signaux utilisés
+- La preuve : un chiffre uniquement s'il figure dans les signaux (sinon omets cette ligne)
+- L'insight : une phrase naturelle (comportement, tension, ce que les marques font encore)
+- L'angle d'activation : pour qui (secteurs) + message de marque rédigé, affichable tel quel
+- À vérifier : ce que tu supposes sans le voir dans les signaux
+
+Règles : n'invente aucun chiffre, étude, institut ni source ; zéro marronnier déjà rincé (run clubs, matcha, quiet quitting classique) sauf contrecoup ; priorité aux frictions
+(agacement, saturation, rejet) ; privilégie les sujets confirmés par plusieurs sources ; au moins 6 sujets français ou européens ; français sobre, sans métaphore physique ni mot inventé ;
+les sujets sensibles (deuil, drame, crime, polémique clivante) ne reçoivent AUCUN angle : liste-les à part sous « Ça monte, ne pas rebondir ».
+"""
+
+
+def prompt(date, sujets, monte, chif, fric, lect):
+    L = [PROMPT_HEAD, f"DATE : {date}", "", "SUJETS REPÉRÉS PAR PLUSIEURS SOURCES :"]
+    for s in sujets[:14]:
+        L.append(f"- {s['titre']} [{', '.join(s['medias'][:5])}]" + ("  (SENSIBLE)" if s["sensible"] else ""))
+        for l in s["liens"][:3]:
+            L.append(f"    · {l['label']} {l['url']}")
+    L += ["", "ÇA MONTE (pics Wikipédia / Google Trends) :"]
+    L += [f"- {m['sujet']} | {m['mesure']} | {m['pourquoi']}" + ("" if m["rebondable"] else "  (SENSIBLE)") for m in monte]
+    L += ["", "CHIFFRES ET ÉTUDES (repris tels quels) :"] + [f"- {c['chiffre']} : {c['phrase']} ({c['source']}) {c['liens'][0]['url']}" for c in chif]
+    L += ["", "FRICTIONS :"] + [f"- {f['titre']} ({f['source']}) {f['url']}" for f in fric]
+    L += ["", "LECTURES (newsletters, culture) :"] + [f"- {l['titre']} ({l['source']}) {l['url']}" for l in lect]
+    return "\n".join(L)
+
+
+# ---------- assemblage ----------
+def build(signals, date):
+    groups = clusters(signals)
+    sujets = []
+    for g in groups:
+        if len(sujets) >= 14:
+            break
+        best = signals[g["best"]]
+        texte = " ".join(signals[i]["title"] for i in g["ids"])
+        members = sorted((signals[i] for i in g["ids"] if not signals[i]["source"].startswith(CORE)), key=_age)
+        if not members:
+            continue
+        sujets.append({"titre": clean(best["title"])[:140], "tags": g["tags"], "medias": g["pubs"], "nb": len(g["ids"]),
+                       "sensible": sensible(texte), "liens": [_lien(x) for x in members[:4]]})
+    monte, chif, fric, lect = ca_monte(signals, groups), chiffres(signals), frictions(signals), lectures(signals)
+    return {"mode": "auto", "fiches": [], "ca_monte": monte, "chiffres": chif, "sujets": sujets, "frictions": fric, "lectures": lect,
+            "prompt": prompt(date, sujets, monte, chif, fric, lect)}
+'''
+# <<END_AUTO_SRC>>
