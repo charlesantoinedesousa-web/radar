@@ -151,8 +151,11 @@ def feeds(max_age_h=72, per_feed=3):
     now = dt.datetime.now(dt.timezone.utc)
     out, ok, ko = [], [], []
 
-    def parse(url):
-        root = ET.fromstring(get(url, timeout=15))
+    BROWSER = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+               "Accept": "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.8"}
+
+    def parse(url, headers=None):
+        root = ET.fromstring(get(url, headers=headers, timeout=15))
         if not any(e.tag.split("}")[-1] in ("item", "entry") for e in root.iter()):
             raise ValueError("flux vide")
         return root
@@ -160,11 +163,12 @@ def feeds(max_age_h=72, per_feed=3):
     def load(f):
         home = (f.get("home") or "").rstrip("/")
         cands = [f["url"]] if f.get("url") else [home + p for p in ("/feed", "/rss/", "/rss", "/feed.xml", "/rss.xml", "/atom.xml", "/index.xml")]
-        for u in cands:  # pour une adresse d'accueil : on essaie les chemins de flux usuels (Substack, Ghost, WordPress...)
-            try:
-                return parse(u)
-            except Exception:
-                pass
+        for hdr in (None, BROWSER):  # d'abord notre identité, puis celle d'un navigateur
+            for u in cands:  # pour une adresse d'accueil : on essaie les chemins de flux usuels (Substack, Ghost, WordPress...)
+                try:
+                    return parse(u, hdr)
+                except Exception:
+                    pass
         site = f.get("site") or (urllib.parse.urlparse(home).netloc.removeprefix("www.") if home else "")
         if site:  # flux bloqué ou introuvable : on passe par l'index Google Actualités du site
             q = urllib.parse.quote_plus(f"site:{site} when:14d")
@@ -267,6 +271,9 @@ promesses vagues (« infiniment plus de goût »), jeux de mots creux. Le messag
 Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"titre","categorie","insight","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}]}]}"""
 
 
+DEAD = set()  # fournisseurs hors service pendant ce run
+
+
 def _gemini(user_msg, system, gem, PATIENCE, ALTS):
     def ask(model):
         body = {"systemInstruction": {"parts": [{"text": system}]},
@@ -359,13 +366,15 @@ def call_llm(user_msg, system=None):
     """Essaie les fournisseurs dans l'ordre : Gemini (gratuit), Mistral (gratuit), Claude (payant). Passe au suivant en cas d'échec."""
     system = system or SYSTEM
     env = os.environ.get
-    chain = []
-    if env("GEMINI_API_KEY"):
-        chain.append(("Gemini", lambda p: _gemini(user_msg, system, env("GEMINI_API_KEY"), *p)))
-    if env("MISTRAL_API_KEY"):
-        chain.append(("Mistral", lambda p: _mistral(user_msg, system, env("MISTRAL_API_KEY"))))
-    if env("ANTHROPIC_API_KEY"):
-        chain.append(("Claude", lambda p: _claude(user_msg, system, env("ANTHROPIC_API_KEY"))))
+    makers = {
+        "gemini": ("Gemini", env("GEMINI_API_KEY"), lambda p: _gemini(user_msg, system, env("GEMINI_API_KEY"), *p)),
+        "mistral": ("Mistral", env("MISTRAL_API_KEY"), lambda p: _mistral(user_msg, system, env("MISTRAL_API_KEY"))),
+        "claude": ("Claude", env("ANTHROPIC_API_KEY"), lambda p: _claude(user_msg, system, env("ANTHROPIC_API_KEY"))),
+    }
+    order = [k.strip() for k in (env("RADAR_ORDER") or "gemini,mistral,claude").split(",")]  # ex. RADAR_ORDER=mistral,gemini
+    chain = [(makers[k][0], makers[k][2]) for k in order if k in makers and makers[k][1]]
+    alive = [c for c in chain if c[0] not in DEAD]
+    chain = alive or chain  # un fournisseur déjà tombé dans ce run est sauté, sauf s'il n'en reste aucun
     if not chain:
         sys.exit("Aucune clé (GEMINI_API_KEY, MISTRAL_API_KEY ou ANTHROPIC_API_KEY). Sinon lance avec --raw / --demo.")
     err = None
@@ -376,6 +385,7 @@ def call_llm(user_msg, system=None):
             return fn((patience, alts))
         except (urllib.error.URLError, OSError) as e:
             err = e
+            DEAD.add(name)
             print(f"[!] {name} indisponible ({getattr(e, 'code', type(e).__name__)})" + ("" if last else ", bascule sur le fournisseur suivant"), file=sys.stderr)
     raise err
 
