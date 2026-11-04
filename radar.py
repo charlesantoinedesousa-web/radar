@@ -299,14 +299,19 @@ Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":""
 DEAD = set()  # fournisseurs hors service pendant ce run
 
 
-def providers_status():
-    """Quels fournisseurs d'IA ont une clé dans cet environnement (sans jamais afficher la clé)."""
-    env = os.environ.get
-    return [("Gemini", bool(env("GEMINI_API_KEY"))), ("Mistral", bool(env("MISTRAL_API_KEY"))), ("Claude", bool(env("ANTHROPIC_API_KEY")))]
+def _key(name):
+    """Clé d'API nettoyée : un copier-coller ajoute souvent un espace ou un retour à la ligne invisible."""
+    return (os.environ.get(name) or "").strip()
 
 
 def providers_line():
-    return ", ".join(f"{n} {'✓ clé reçue' if ok else '✗ clé ABSENTE'}" for n, ok in providers_status())
+    """Quels fournisseurs d'IA ont une clé ici (jamais la clé elle-même, seulement sa longueur)."""
+    out = []
+    for n, v in (("Gemini", "GEMINI_API_KEY"), ("Mistral", "MISTRAL_API_KEY"), ("Claude", "ANTHROPIC_API_KEY")):
+        raw = os.environ.get(v) or ""
+        k = raw.strip()
+        out.append(f"{n} ✓ clé reçue ({len(k)} car.{', espaces parasites retirés' if k != raw else ''})" if k else f"{n} ✗ clé ABSENTE")
+    return ", ".join(out)
 
 
 def _gemini(user_msg, system, gem, PATIENCE, ALTS):
@@ -402,9 +407,9 @@ def call_llm(user_msg, system=None):
     system = system or SYSTEM
     env = os.environ.get
     makers = {
-        "gemini": ("Gemini", env("GEMINI_API_KEY"), lambda p: _gemini(user_msg, system, env("GEMINI_API_KEY"), *p)),
-        "mistral": ("Mistral", env("MISTRAL_API_KEY"), lambda p: _mistral(user_msg, system, env("MISTRAL_API_KEY"))),
-        "claude": ("Claude", env("ANTHROPIC_API_KEY"), lambda p: _claude(user_msg, system, env("ANTHROPIC_API_KEY"))),
+        "gemini": ("Gemini", _key("GEMINI_API_KEY"), lambda p: _gemini(user_msg, system, _key("GEMINI_API_KEY"), *p)),
+        "mistral": ("Mistral", _key("MISTRAL_API_KEY"), lambda p: _mistral(user_msg, system, _key("MISTRAL_API_KEY"))),
+        "claude": ("Claude", _key("ANTHROPIC_API_KEY"), lambda p: _claude(user_msg, system, _key("ANTHROPIC_API_KEY"))),
     }
     order = [k.strip() for k in (env("RADAR_ORDER") or "gemini,mistral,claude").split(",")]  # ex. RADAR_ORDER=mistral,gemini
     chain = [(makers[k][0], makers[k][2]) for k in order if k in makers and makers[k][1]]
@@ -418,10 +423,22 @@ def call_llm(user_msg, system=None):
         patience, alts = ((20, 60, 120, 180), 3) if last else ((15, 45), 1)  # un secours existe : on n'insiste pas
         try:
             return fn((patience, alts))
-        except (urllib.error.URLError, OSError) as e:
+        except Exception as e:  # toute erreur d'un fournisseur (réseau, clé refusée, réponse inattendue) : on passe au suivant
             err = e
             DEAD.add(name)
-            print(f"[!] {name} indisponible ({getattr(e, 'code', type(e).__name__)})" + ("" if last else ", bascule sur le fournisseur suivant"), file=sys.stderr)
+            detail = ""
+            if isinstance(e, urllib.error.HTTPError):
+                try:
+                    detail = getattr(e, "body", None) or e.read().decode(errors="replace")
+                except Exception:
+                    pass
+            else:
+                detail = str(e)
+            for v in ("GEMINI_API_KEY", "MISTRAL_API_KEY", "ANTHROPIC_API_KEY"):
+                if _key(v):
+                    detail = detail.replace(_key(v), "***")
+            print(f"[!] {name} indisponible ({getattr(e, 'code', type(e).__name__)}) {' '.join(detail.split())[:240]}"
+                  + ("" if last else " -> bascule sur le fournisseur suivant"), file=sys.stderr)
     raise err
 
 
@@ -598,7 +615,7 @@ def main():
     now = dt.datetime.now().strftime("%d/%m/%Y %H:%M")
     if not (a.demo or a.raw):
         print(f"Fournisseurs d'IA : {providers_line()}")
-        if not os.environ.get("MISTRAL_API_KEY"):
+        if not _key("MISTRAL_API_KEY"):
             print("::warning::MISTRAL_API_KEY absente : aucun secours si Gemini est saturé (secret manquant ou non transmis par le workflow).")
     if a.demo:
         fiches = json.loads((HERE / "demo.json").read_text(encoding="utf-8"))
