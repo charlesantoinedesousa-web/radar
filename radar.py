@@ -147,6 +147,7 @@ def feeds(max_age_h=72, per_feed=3):
             if line and not line.startswith("#") and "|" in line:
                 name, url = (x.strip() for x in line.split("|", 1))
                 if url.startswith("http"):
+                    cfg = [c for c in cfg if c["name"].lower() != name.lower()]  # pas de doublon avec feeds.json
                     cfg.append({"name": name, "home": url, "n": 2, "max_age_h": 240})
     now = dt.datetime.now(dt.timezone.utc)
     out, ok, ko = [], [], []
@@ -296,6 +297,16 @@ Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":""
 
 
 DEAD = set()  # fournisseurs hors service pendant ce run
+
+
+def providers_status():
+    """Quels fournisseurs d'IA ont une clé dans cet environnement (sans jamais afficher la clé)."""
+    env = os.environ.get
+    return [("Gemini", bool(env("GEMINI_API_KEY"))), ("Mistral", bool(env("MISTRAL_API_KEY"))), ("Claude", bool(env("ANTHROPIC_API_KEY")))]
+
+
+def providers_line():
+    return ", ".join(f"{n} {'✓ clé reçue' if ok else '✗ clé ABSENTE'}" for n, ok in providers_status())
 
 
 def _gemini(user_msg, system, gem, PATIENCE, ALTS):
@@ -585,6 +596,10 @@ def main():
     ap.add_argument("--monte", action="store_true", help="mise à jour de midi : seulement « Ça monte »")
     a = ap.parse_args()
     now = dt.datetime.now().strftime("%d/%m/%Y %H:%M")
+    if not (a.demo or a.raw):
+        print(f"Fournisseurs d'IA : {providers_line()}")
+        if not os.environ.get("MISTRAL_API_KEY"):
+            print("::warning::MISTRAL_API_KEY absente : aucun secours si Gemini est saturé (secret manquant ou non transmis par le workflow).")
     if a.demo:
         fiches = json.loads((HERE / "demo.json").read_text(encoding="utf-8"))
         return render({"mode": "demo", "generated": now, "fiches": fiches, "ca_monte": [], "chiffres": [], "feeds_ko": [], "signals": []})
@@ -612,7 +627,7 @@ def main():
         p = OUT / "latest.json"
         old = json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
         if old and old.get("fiches"):
-            old.update({"stale": f"La génération du {now} a échoué (modèle indisponible ou quota atteint) : édition précédente affichée.",
+            old.update({"stale": f"La génération du {now} a échoué (modèle indisponible ou quota atteint) : édition précédente affichée. Fournisseurs d'IA : {providers_line()}.",
                         "feeds_ko": FEEDS_KO, "signals": signals})
             return render(old)
         fiches, monte, chiffres = [], [], []
