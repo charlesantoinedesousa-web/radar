@@ -10,6 +10,7 @@ Env: GEMINI_API_KEY (gratuit) ou ANTHROPIC_API_KEY, RADAR_MODEL,
 """
 import argparse, types, datetime as dt, threading, html, json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
+from collections import Counter
 from email.utils import parsedate_to_datetime
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -382,7 +383,7 @@ def _mistral(user_msg, system, key):
     for model in models:  # un modèle absent de l'offre (403/404) : on essaie le suivant
         body = {"model": model, "temperature": 0.4, "max_tokens": 9000, "response_format": {"type": "json_object"},
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user_msg}]}
-        for i, wait in enumerate((0, 25, 65, 65)):
+        for i, wait in enumerate((0, 45)):
             gap = 50 - (time.time() - _MISTRAL_LAST[0])  # offre gratuite : limite de débit par minute, on espace les appels
             time.sleep(max(wait, gap if gap > 0 else 0))
             req = urllib.request.Request("https://api.mistral.ai/v1/chat/completions", json.dumps(body).encode(),
@@ -396,15 +397,16 @@ def _mistral(user_msg, system, key):
                 if e.code in (403, 404):
                     print(f"[!] Mistral : {model} non disponible dans ton offre ({e.code})", file=sys.stderr)
                     break
-                if e.code not in (429, 500, 502, 503, 504) or i == 3:
+                if e.code not in (429, 500, 502, 503, 504) or i == 1:
                     raise
                 ra = e.headers.get("Retry-After") if e.headers else None
                 if ra and ra.isdigit():
                     _MISTRAL_LAST[0] = time.time() + min(int(ra), 90) - 50  # on respecte le délai demandé par le service
-                print(f"[!] Mistral : {e.code}, nouvel essai après une pause", file=sys.stderr)
+                limites = {k: v for k, v in (e.headers.items() if e.headers else []) if "ratelimit" in k.lower() or "retry" in k.lower()}
+                print(f"[!] Mistral : {e.code}, nouvel essai après une pause | requête : {len(user_msg)} car. | limites annoncées : {limites or 'aucune'}", file=sys.stderr)
             except OSError as e:
                 err = e
-                if i == 3:
+                if i == 1:
                     raise
                 print("[!] Mistral : coupure, nouvel essai", file=sys.stderr)
     raise err
@@ -573,20 +575,62 @@ def synthesize_monte(signals):
     return monte
 
 
+IA_QUOTAS = {"Wikipédia FR": 12, "Wikipédia EN": 4, "Google Trends FR": 8, "Google Trends US": 3, "Google Trends GB": 3, "Google Trends JP": 2,
+             "Google Trends DE": 2, "Google Trends BR": 2, "Google Actualités FR": 12, "Hacker News": 8}
+
+
+def ia_subset(signals, cap):
+    """Sous-ensemble équilibré envoyé à l'IA : quelques lignes de chaque source « ça monte », puis un tour de rôle entre les autres sources."""
+    core, groups, used = [], {}, Counter()
+    for x in signals:
+        q = IA_QUOTAS.get(x["source"])
+        if q is not None:
+            if used[x["source"]] < q:
+                used[x["source"]] += 1
+                core.append(x)
+        else:
+            groups.setdefault(x["source"], []).append(x)
+    for g in groups.values():
+        g.sort(key=lambda x: x.get("age") if x.get("age") is not None else 24)
+    out, i = core[:cap], 0
+    while len(out) < cap and any(i < len(g) for g in groups.values()):
+        for g in groups.values():
+            if i < len(g) and len(out) < cap:
+                out.append(g[i])
+        i += 1
+    return out
+
+
+def _limite_taille(e):
+    """Vrai si l'échec ressemble à une requête trop grosse / un débit dépassé (on réessaie en plus petit)."""
+    return isinstance(e, urllib.error.HTTPError) and e.code in (413, 429) or "déjà tombés" in str(e)
+
+
 def synthesize(signals):
     by_id = {s["id"]: s for s in signals}
     seen = recent_topics()
     head = (f"Date : {dt.date.today():%d/%m/%Y}\n"
             + (("SUJETS DÉJÀ TRAITÉS CES DERNIERS JOURS (ne les répète pas, sauf évolution notable) : " + " ; ".join(seen) + "\n") if seen else ""))
-    # passe 1 : sélection des sujets (réponse courte, ids seulement)
-    sel = None
-    try:
-        sel = _json(head + "SIGNAUX :\n" + "\n".join(_lines_courtes(signals)), SELECT)
-        ids = {i for k in ("fiches", "ca_monte", "chiffres") for it in sel.get(k, []) for i in it.get("signal_ids", []) if i in by_id}
-        if len(sel.get("fiches", [])) < 5 or not ids:
+    # passe 1 : sélection des sujets (réponse courte, ids seulement) ; si le service limite le débit, on réessaie avec moins de signaux
+    sel, ids, used_cap = None, set(), None
+    for k, cap in enumerate((int(os.environ.get("RADAR_IA_MAX", "220")), 110, 60)):
+        sub = ia_subset(signals, cap)
+        try:
+            sel = _json(head + "SIGNAUX :\n" + "\n".join(_lines_courtes(sub)), SELECT)
+            ids = {i for key in ("fiches", "ca_monte", "chiffres") for it in sel.get(key, []) for i in it.get("signal_ids", []) if i in by_id}
+            if len(sel.get("fiches", [])) < 5 or not ids:
+                sel = None
+            used_cap = cap
+            break
+        except Exception as e:
             sel = None
-    except Exception as e:
-        print(f"[!] sélection impossible ({e}), passage en une seule étape", file=sys.stderr)
+            if k < 2 and _limite_taille(e):
+                print(f"[!] requête refusée ({str(e)[:60]}) : nouvel essai avec {(110, 60)[k]} signaux dans 60 s", file=sys.stderr)
+                DEAD.clear()
+                time.sleep(60)
+                continue
+            print(f"[!] sélection impossible ({e}), passage en une seule étape", file=sys.stderr)
+            break
     # passe 2 : rédaction à partir des seuls signaux retenus
     if sel:
         subset = [by_id[i] for i in sorted(ids)]
@@ -594,7 +638,7 @@ def synthesize(signals):
                   "\"ca_monte\", et extrais les \"chiffres\" des signaux listés ; écarte un sujet seulement si tu ne peux pas formuler son insight) :\n"
                   + json.dumps(sel, ensure_ascii=False) + "\nSIGNAUX RETENUS :\n" + "\n".join(_lines(subset)))
     else:
-        prompt = head + "SIGNAUX :\n" + "\n".join(_lines(signals))
+        prompt = head + "SIGNAUX :\n" + "\n".join(_lines(ia_subset(signals, 110)))
     data = _json(prompt, SYSTEM)
     fiches, monte, chiffres = data.get("fiches", []), data.get("ca_monte", []), data.get("chiffres", [])
 
