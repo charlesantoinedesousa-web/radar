@@ -83,7 +83,7 @@ function card(f){
  <div><div class="lbl">Public touché</div>${esc(f.public)}</div>
  <div><div class="lbl">Le problème</div>${esc(f.probleme||f.signal)}</div>
  ${f.preuve?`<div class="proof"><div class="lbl">La preuve</div>${esc(f.preuve)}</div>`:""}
- <div class="idea"><div class="lbl">L'idée</div><b>${esc(f.idee)}</b>${(f.format||f.effort)?`<div class="tiny">${f.format?"Format : "+esc(f.format):""}${f.effort?" · effort estimé (à confirmer) : "+esc(f.effort):""}</div>`:""}<button class="cp" data-t="${esc(f.idee)}">Copier</button></div>
+ <div class="idea"><div class="lbl">L'idée</div>${f.accroche?`<div style="font-size:17px;font-weight:700;color:var(--base);margin-bottom:4px">« ${esc(f.accroche)} »</div>`:""}<b>${esc(f.idee)}</b>${f.originalite?`<div class="tiny" style="margin-top:6px">Ce qui la rend originale : ${esc(f.originalite)}</div>`:""}${(f.format||f.effort)?`<div class="tiny">${f.format?"Format : "+esc(f.format):""}${f.effort?" · effort estimé (à confirmer) : "+esc(f.effort):""}</div>`:""}<button class="cp" data-t="${esc(f.idee)}">Copier</button></div>
  ${f.limites?`<div class="tiny">⚠ Limites : ${esc(f.limites)}</div>`:""}${pied}</article>`;
  return `<article class="card"><div class="top"><span class="b ${esc(f.urgence)}">${U[f.urgence]||esc(f.urgence)}</span><span>${esc(f.categorie)}</span></div>
  <h2>${esc(f.titre)}</h2>${chips(f.clients)}

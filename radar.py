@@ -285,7 +285,13 @@ résolu par une idée CRÉATIVE ET ORIGINALE, simple à réaliser vite. Ce peut 
 PAS forcément numérique. Exemple : des blocages privent des étudiants de cours -> une idée originale pour les aider à rattraper. \
 Champs de ces fiches : "public" (qui est touché), "probleme" (ce qui leur manque, une phrase appuyée sur les signaux), "idee" (l'idée créative, une à trois phrases concrètes), \
 "format" (outil, affichage, objet, événement, contenu, détournement...), "effort" ("léger" = quelques jours, "moyen" ou "lourd" : estimation à confirmer), \
-"limites" (neutralité, droits, risques, ce qu'il ne faut pas promettre). Pas de "angles" pour ces fiches.
+"limites" (neutralité, droits, risques, ce qu'il ne faut pas promettre), "accroche" (le nom ou la baseline de l'idée, courte) et "originalite" (une phrase : ce qui la rend inattendue). \
+Pas de "angles" pour ces fiches.
+  ORIGINALITÉ : l'idée doit être surprenante et pouvoir appartenir à une agence de publicité. INTERDIT par défaut : guide, fanzine, tutoriel, kit d'astuces, checklist, newsletter, \
+page d'information, « conseils pratiques » : n'importe quel média publie cela. Cherche un geste visible, un objet détourné, un dispositif dans la rue ou en ligne qu'on raconterait à des amis, un renversement. \
+Le titre de la fiche est court (8 mots maximum). L'idée ne reporte jamais l'effort sur les gens touchés (ne leur apprends pas à supporter une situation anormale) et ne désigne aucun coupable. \
+"probleme" doit être appuyé sur un signal précis : cite dans "sources" les médias qui l'établissent ; si seul un signal indirect existe, écris-le dans "a_verifier". \
+Si une marque cliente est concernée, vérifie que l'idée ne la met pas en porte-à-faux (ex. un fabricant de chauffage ne se moque pas d'un chauffage défaillant) et dis-le dans "limites".
   RÈGLES ARTEFACT 3000 : NON PARTISAN (aide les gens à s'adapter ou à s'en sortir, ne prend jamais parti pour ou contre un mouvement, un gouvernement ou une entreprise) ; \
 jamais sur un drame, un deuil ou une catastrophe (pas d'exploitation) ; aucune donnée personnelle sensible ; aucun effet chiffré promis ; ne cite que des faits présents dans les signaux ; \
 "a_verifier" liste ce qu'il faut confirmer (le besoin réel, la faisabilité, les droits).
@@ -310,7 +316,7 @@ CHIFFRES UTILES : ne retiens dans "chiffres" que ceux qui éclairent consommatio
 de faits divers, de santé grave, de suicide, de fin de vie, de justice ou de politique partisane.
 ANGLES : un angle part d'une tension réelle et prend position (« ce que la marque dit que les autres n'osent pas »). Interdit : slogans génériques, \
 promesses vagues (« infiniment plus de goût »), jeux de mots creux. Le message doit pouvoir être affiché tel quel, en une à deux phrases.
-Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"famille":"client|artefact3000","titre","categorie","insight","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}],"clients":[],"public":"","probleme":"","idee":"","format":"","effort":"léger|moyen|lourd","limites":""}]}"""
+Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":"","signal_ids":[]}],"ca_monte":[{"sujet":"","pourquoi":"","mesure":"","rebondable":true,"precaution":"","idee":null,"signal_ids":[]}],"fiches":[{"famille":"client|artefact3000","titre","categorie","insight","urgence":"chaud|montant|fond","signal","statut","sources":[],"signal_ids":[],"preuve":null,"rebondable":true,"risque":"","a_verifier":"","angles":[{"pour_qui":"","message":""}],"clients":[],"public":"","probleme":"","idee":"","accroche":"","originalite":"","format":"","effort":"léger|moyen|lourd","limites":""}]}"""
 
 
 DEAD = set()  # fournisseurs hors service pendant ce run
@@ -530,7 +536,7 @@ un rédacteur écrira ensuite les fiches. Choisis :
 - 6 sujets de fiches CLIENT (environ 2 liés à l'actualité chaude, 4 frictions / contre-tendances / signaux) ;
 - 4 sujets de fiches ARTEFACT 3000 (ce que l'agence de publicité pourrait sortir en son nom POUR LES GENS) : un problème réel que des gens rencontrent à cause d'un événement du moment \
 (grève, blocage, canicule, froid, hausse des prix, panne, réforme, échéance, examens, pénurie, polémique) et qui appelle une idée créative et originale, simple à réaliser vite, NON PARTISANE. \
-Jamais un drame, un deuil ou une catastrophe. Cherche le problème pratique des gens, pas le débat politique ;
+Jamais un drame, un deuil ou une catastrophe. Cherche le problème pratique des gens, pas le débat politique ; privilégie les sujets qui appellent un geste ou un dispositif surprenant, pas un simple guide de conseils ;
 - 7 sujets « ça monte aujourd'hui » (pics Wikipédia, Google Trends, Google Actualités : événements, personnalités, sorties, polémiques) ;
 - 8 signaux contenant un chiffre, une étude ou un sondage utiles (consommation, usages, marques, tech, travail, médias, culture ; jamais faits divers, \
 santé grave, suicide, fin de vie, justice, politique partisane).
