@@ -486,7 +486,7 @@ def call_llm(user_msg, system=None):
     order = [k.strip() for k in (env("RADAR_ORDER") or "gemini,mistral,claude").split(",")]  # ex. RADAR_ORDER=mistral,gemini
     chain = [(makers[k][0], makers[k][2]) for k in order if k in makers and makers[k][1]]
     if not chain:
-        sys.exit("Aucune clé (GEMINI_API_KEY, MISTRAL_API_KEY ou ANTHROPIC_API_KEY). Sinon lance avec --raw / --demo.")
+        raise RuntimeError("aucun fournisseur d'IA utilisable (clé absente ou absente de RADAR_ORDER)")
     chain = [c for c in chain if c[0] not in DEAD]  # un fournisseur déjà tombé dans ce run n'est pas réessayé
     if not chain:
         raise RuntimeError("tous les fournisseurs d'IA sont déjà tombés pendant ce run")
