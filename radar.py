@@ -321,6 +321,7 @@ Réponds UNIQUEMENT en JSON : {"chiffres":[{"chiffre":"","phrase":"","source":""
 
 
 DEAD = set()  # fournisseurs hors service pendant ce run
+ERRORS = []   # détail lisible de chaque échec (affiché dans le bandeau du site)
 FAILS = []    # nature des échecs de l'étape en cours : "quota", "zero", "size", "rate", "other"
 
 
@@ -511,6 +512,7 @@ def call_llm(user_msg, system=None):
             for v in ("GEMINI_API_KEY", "MISTRAL_API_KEY", "ANTHROPIC_API_KEY"):
                 if _key(v):
                     detail = detail.replace(_key(v), "***")
+            ERRORS.append(f"{name} : {getattr(e, 'code', type(e).__name__)} {' '.join(detail.split())[:150]}".strip())
             print(f"[!] {name} indisponible ({getattr(e, 'code', type(e).__name__)}) {' '.join(detail.split())[:240]}"
                   + ("" if last else " -> bascule sur le fournisseur suivant"), file=sys.stderr)
     raise err
@@ -824,7 +826,9 @@ def main():
         payload = auto.build(signals, now, clients_cfg(), profil())
         payload["generated"] = now
         if ai:
-            payload["stale"] = "L'IA n'a pas répondu ce matin : édition automatique (sans rédaction de fiches) affichée à la place."
+            raisons = " | ".join(dict.fromkeys(ERRORS))[:600]
+            payload["stale"] = ("L'IA n'a pas répondu ce matin : édition automatique (sans rédaction de fiches) affichée à la place."
+                                + (f" Raisons : {raisons}" if raisons else ""))
     payload.update({"feeds_ko": FEEDS_KO, "signals": signals})
     render(payload)
 
