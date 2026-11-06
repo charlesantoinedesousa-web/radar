@@ -17,7 +17,7 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      RADAR_ORDER: mistral,gemini,claude   # Mistral d'abord ; Gemini en secours ; Claude seulement si une clé existe
+      RADAR_ORDER: claude,gemini,mistral   # Claude d'abord ; Gemini et Mistral en secours seulement s'ils ont une clé
       RADAR_WEBHOOK: ${{ secrets.RADAR_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
